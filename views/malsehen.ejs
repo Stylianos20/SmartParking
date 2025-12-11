@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Parking – Parkplatz Reservierung</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha2d14-Zsqu/fN7y1n6L07/04eG7i4I/J/t2O8sFh7+3dG1I4g=" crossorigin="" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha2d14-Zsqu/fN7y1n6L07/04eG7i4I/J/t2O8sFh7+3dG1I4g=" crossorigin=""></script>
+    <style>
+        /* Modern, Q-Park-ähnliche Schriftart und Basis-Stile */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc; /* Sehr helles Grau/Blau */
+        }
+        /* Definiert die Größe der Karte */
+        #mapid { 
+            height: 600px;
+            width: 100%;
+            border-radius: 1rem; /* rounded-xl */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Q-Park Blue */
+        .qpark-blue {
+            background-color: #0059ff; 
+        }
+        .qpark-blue-hover:hover {
+            background-color: #4a00f7; 
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Header / Navbar -->
+    <header class="qpark-blue text-white shadow-md p-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Q-Parking</h1>
+            <div class="text-sm font-medium">
+                <!-- Anzeige des Login-Status -->
+                <span id="auth-status" class="mr-4">
+                    <!-- Platzhalter, wird von JS initialisiert, aber angenommen, die EJS-Vorlage setzt es -->
+                    ${window.__isLoggedIn ? 'Angemeldet' : 'Gast'}
+                </span>
+                <!-- Freigabe-Button (nur sichtbar, wenn eingeloggt) -->
+                <button 
+                    id="release-spot-btn" 
+                    class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-full transition duration-150"
+                    onclick="releaseSpotFromUI()"
+                    style="display: ${window.__isLoggedIn ? 'inline-block' : 'none'};"
+                >
+                    Reservierung freigeben
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+
+        <!-- 1. Suchleiste (Filter nach Stadt) -->
+        <section class="bg-white p-6 rounded-xl shadow-xl mb-8 border border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">Parkplatz suchen & reservieren</h2>
+            <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <input type="text" id="city-search-input" placeholder="Geben Sie eine Stadt oder Adresse ein (z.B. Frankfurt)"
+                    class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                
+                <button id="search-button" class="qpark-blue text-white qpark-blue-hover px-6 py-3 rounded-lg font-semibold transition duration-150 shadow-md">
+                    Suchen
+                </button>
+            </div>
+        </section>
+
+        <!-- Statusmeldung -->
+        <div id="status-message" class="hidden fixed top-20 right-5 z-50 p-4 rounded-lg shadow-xl border-l-4" role="alert">
+            <div class="flex">
+                <div class="py-1"><svg class="fill-current h-6 w-6 mr-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path id="status-icon" d="M10 20a10 10 0 1 1 0-20 10 10 0 0 1 0 20zm-2-8a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0v-5zm0-4a1 1 0 0 1 2 0v1a1 1 0 0 1-2 0v-1z"></path></svg></div>
+                <div>
+                    <p id="status-title" class="font-bold"></p>
+                    <p id="status-text" class="text-sm"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- 2. Kartenansicht -->
+            <div class="lg:col-span-2">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Parkplatz-Übersicht</h2>
+                <div id="mapid"></div>
+            </div>
+
+            <!-- 3. Parkplatz-Liste & Details -->
+            <div class="lg:col-span-1">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Verfügbare Spots</h2>
+                
+                <div id="loading" class="text-gray-500 text-center py-8">Lade Parkplatzdaten...</div>
+                <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+                    <p class="font-bold">Laden fehlgeschlagen</p>
+                    <p id="error-text">Ein Fehler ist beim Abrufen der Parkplatzdaten aufgetreten.</p>
+                </div>
+                <div id="no-spots-message" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+                    <p>Keine Parkplätze gefunden, die der Suche entsprechen oder frei sind.</p>
+                </div>
+
+                <!-- Parkplatz-Karten werden hier eingefügt -->
+                <div id="parking-list" class="space-y-4">
+                    <!-- Cards werden via JS gerendert -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Detail-Sektion (unterhalb der Karte/Liste) -->
+        <section id="parking-details" class="hidden mt-10 bg-white p-6 rounded-xl shadow-xl border-t-4 border-indigo-600">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="detail-title" class="text-2xl font-bold text-gray-800">Details</h2>
+                <button id="close-details-btn" class="text-gray-500 hover:text-gray-800 text-3xl font-light leading-none">
+                    &times;
+                </button>
+            </div>
+            <div id="detail-content" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Details werden via JS gerendert -->
+            </div>
+        </section>
+    </main>
+
+    <!-- 5. Reservierungs-Modal -->
+    <div id="reservation-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex justify-center items-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300 scale-100">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4 text-gray-800">Reservierung für [Spot Name]</h3>
+            
+            <form id="reservation-form" class="space-y-4">
+                <div>
+                    <label for="res-date" class="block text-sm font-medium text-gray-700 mb-1">Datum der Ankunft</label>
+                    <input type="date" id="res-date" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="res-time" class="block text-sm font-medium text-gray-700 mb-1">Uhrzeit der Ankunft</label>
+                    <input type="time" id="res-time" required class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label for="res-duration" class="block text-sm font-medium text-gray-700 mb-1">Dauer (in Stunden)</label>
+                    <input type="number" id="res-duration" min="1" max="24" value="2" required 
+                        class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="close-modal-btn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition">
+                        Abbrechen
+                    </button>
+                    <button type="submit" class="qpark-blue text-white qpark-blue-hover px-4 py-2 rounded-lg font-semibold transition shadow-md">
+                        Reservierung abschließen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        // Globale Variablen für Karte und Status
+        let map;
+        let parkingMarkers = L.layerGroup();
+        const API_BASE_URL = '/parking/api';
+
+        // WICHTIG: Korrekte Initialisierung des Login-Status und der User-ID.
+        // Diese Variablen werden von der EJS-Vorlage gesetzt.
+        let currentUserId = window.__expressUserId || null;
+        let isLoggedIn = window.__isLoggedIn || false;
+
+        // Alle Spots für Details speichern
+        let allParkingSpots = [];
+        let activeSpotIdForReservation = null; // Speichert die Spot-ID für das Modal
+
+        // Funktionen global verfügbar machen für Popups/UI-Handler
+        window.reserveSpotFromMap = openReservationModal; // Ändert das Verhalten von Popups auf Modal
+        window.showSpotDetails = showSpotDetails;
+        window.releaseSpotFromUI = releaseSpot; 
+
+        // =======================================================
+        // 1. Status- und API-Funktionen
+        // =======================================================
+
+        /**
+         * Zeigt eine Statusmeldung im UI an.
+         */
+        function displayStatus(message, isSuccess = true) {
+            const statusArea = document.getElementById('status-message');
+            const titleElement = document.getElementById('status-title');
+            const textElement = document.getElementById('status-text');
+
+            statusArea.classList.remove('hidden', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-green-100', 'border-green-400', 'text-green-700');
+
+            if (isSuccess) {
+                statusArea.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+                titleElement.textContent = "Erfolg!";
+            } else {
+                statusArea.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+                titleElement.textContent = "Fehler!";
+            }
+            textElement.textContent = message;
+
+            statusArea.classList.remove('hidden');
+            setTimeout(() => statusArea.classList.add('hidden'), 5000);
+        }
+
+        /**
+         * Ruft alle Parkplätze ab und speichert sie lokal.
+         */
+        async function getAllSpots() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/spots`);
+                if (!response.ok) throw new Error(`Netzwerk- oder Serverfehler: ${response.status}`);
+                const spots = await response.json();
+                allParkingSpots = spots;
+                return spots;
+            } catch (error) {
+                console.error("Fehler beim Abrufen der Spots:", error);
+                throw error;
+            }
+        }
+
+        /**
+         * Reserviert einen Parkplatz über die API mit Datum und Dauer.
+         * @param {string} spotId - Die ID des Parkplatzes.
+         * @param {Object} reservationDetails - Enthält startTime (ISO string) und durationHours.
+         */
+        async function reserveSpot(spotId, reservationDetails) {
+            // 1. ANMELDE-CHECK
+            if (!isLoggedIn) {
+                displayStatus("Sie müssen angemeldet sein, um einen Parkplatz zu reservieren.", false);
+                return;
+            }
+
+            // 2. PRÜFUNG: Aktive Reservierung für diesen Spot vom aktuellen Benutzer?
+            // Die Logik nimmt an, dass das Backend auch die Mehrfachreservierung verwaltet.
+            const existing = allParkingSpots.find(s => 
+                s.id === spotId && 
+                s.status === 'active' && 
+                s.userId === currentUserId
+            );
+            
+            if (existing) {
+                displayStatus("Du hast diesen Parkplatz bereits reserviert!", false);
+                return;
+            } 
+            
+            // 3. API-AUFRUF
+            try {
+                const payload = {
+                    spotId: spotId,
+                    startTime: reservationDetails.startTime, // Z.B. '2025-12-01T10:00:00'
+                    durationHours: reservationDetails.durationHours 
+                };
+
+                const response = await fetch(`${API_BASE_URL}/reserve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                
+                const result = await response.json();
+                
+                // 4. VERARBEITUNG DER ANTWORT
+                if (response.ok) {
+                    displayStatus(result.message || `Parkplatz ${spotId} erfolgreich reserviert!`, true);
+                    loadParkingSpots(); // UI aktualisieren
+                } else {
+                    displayStatus(result.message || "Reservierung fehlgeschlagen.", false);
+                }
+            } catch (error) {
+                console.error(error);
+                displayStatus("Ein unerwarteter Fehler ist bei der Reservierung aufgetreten.", false);
+            }
+        }
+
+
+        /**
+         * Gibt die aktive Reservierung frei.
+         */
+        async function releaseSpot() {
+            // Hinweis: Nutzen Sie in einer echten App ein Custom-Modal anstelle von confirm()
+            if (!confirm(`Sind Sie sicher, dass Sie Ihre aktive Reservierung freigeben möchten?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/release`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    displayStatus(result.message || `Reservierung erfolgreich freigegeben!`, true);
+                    window.location.reload(); 
+                } else {
+                    displayStatus(result.message || "Freigabe der Reservierung fehlgeschlagen.", false);
+                }
+
+            } catch (error) {
+                console.error("Fehler beim Freigeben des Parkplatzes:", error);
+                displayStatus("Ein Netzwerkfehler ist aufgetreten. Bitte versuchen Sie es erneut.", false);
+            }
+        }
+
+
+        // =======================================================
+        // 2. Karten- und UI-Funktionen
+        // =======================================================
+
+        function initializeMap() {
+            map = L.map('mapid').setView([50.1109, 8.6821], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            parkingMarkers.addTo(map);
+        }
+
+        function showSpotDetails(spotId) {
+            const spot = allParkingSpots.find(s => s.id === spotId);
+            if (!spot) return;
+
+            // ... (Detail-Anzeige-Logik ist unverändert und funktioniert) ...
+            const detailContainer = document.getElementById('parking-details');
+            document.getElementById('detail-title').textContent = spot.name;
+
+            const openingHours = spot.openingHours
+                ? Object.entries(spot.openingHours).map(([day, hours]) => `<li><strong>${capitalize(day)}:</strong> ${hours}</li>`).join('')
+                : '<li>Keine Öffnungszeiten verfügbar</li>';
+
+            document.getElementById('detail-content').innerHTML = `
+                <p class="mt-4 p-3 bg-gray-50 rounded shadow-sm text-sm">
+                    <strong>Allgemein</strong><br>
+                    Typ: ${spot.type || 'Standard'}<br>
+                    Adresse: ${spot.location || 'Unbekannt'}<br>
+                    Max. Höhe: ${spot.maxHeight ?? '-'} m
+                </p>
+                <p class="mt-4 p-3 bg-gray-50 rounded shadow-sm text-sm">
+                    <strong>Kapazität</strong><br>
+                    Gesamtplätze: ${spot.totalCount ?? 'Unbekannt'}<br>
+                    Verfügbare Parkplätze: <span class="${(spot.availableCount ?? 0) <= 0 ? 'text-red-500' : 'text-green-600'} font-semibold">${spot.availableCount ?? 'Unbekannt'}</span><br>
+                    Behindertenstellplätze: ${spot.disabledSpots ?? 0}<br>
+                    EV-Ladestationen: ${spot.evChargingCount ?? 0}
+                </p>
+                <p class="mt-4 p-3 bg-gray-50 rounded shadow-sm text-sm">
+                    <strong>Preise & Bezahlung</strong><br>
+                    Preis/Std: <span class="font-semibold">${spot.pricePerHour?.toFixed(2) ?? '0.00'} €</span><br>
+                    Zahlungsmethoden: ${spot.paymentMethods?.join(', ') || 'Keine Angaben'}
+                </p>
+                <div class="mt-4 p-3 bg-gray-50 rounded shadow-sm text-sm">
+                    <strong>Öffnungszeiten:</strong>
+                    <ul class="list-disc ml-4">${openingHours}</ul>
+                </div>
+            `;
+
+
+            detailContainer.classList.remove('hidden');
+            detailContainer.scrollIntoView({ behavior: 'smooth' });
+
+            function capitalize(str) {
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            }
+        }
+
+        function updateMapMarkers(spots) {
+            if (!map) return;
+            if (!parkingMarkers) parkingMarkers = L.layerGroup().addTo(map);
+
+            parkingMarkers.clearLayers();
+
+            spots.forEach((spot) => {
+                const lat = Number(spot.lat);
+                const lon = Number(spot.lon);
+                if (!isFinite(lat) || !isFinite(lon)) return;
+
+                const availableCount = Number(spot.availableCount ?? 0);
+                const totalCount = spot.totalCount ?? 'N/A';
+                const isFull = availableCount <= 0;
+                const markerColor = isFull ? 'red' : 'green';
+
+                const reserveButton = (!isFull && isLoggedIn)
+                    // Ruft openReservationModal auf
+                    ? `<button class="text-blue-600 hover:text-blue-800 ml-2 font-semibold" onclick="openReservationModal('${spot.id}')">Reservieren</button>`
+                    : `<button class="text-gray-400 ml-2" disabled>Reservieren</button>`;
+
+                const popupHtml = `
+                    <h4 class="font-bold text-gray-800">${spot.name ?? 'Unbenannt'}</h4>
+                    <p class="text-sm">Freie Plätze: <span style="color:${markerColor};font-weight:bold">${availableCount}</span> von ${totalCount}</p>
+                    <div class="mt-2 flex justify-between items-center">
+                        <button class="text-indigo-600 hover:text-indigo-800" onclick="showSpotDetails('${spot.id}')">Details</button>
+                        ${reserveButton}
+                    </div>
+                `;
+
+                L.marker([lat, lon]).bindPopup(popupHtml).addTo(parkingMarkers);
+            });
+
+            if (parkingMarkers.getLayers().length > 0 && typeof parkingMarkers.getBounds === 'function') {
+                map.fitBounds(parkingMarkers.getBounds(), { padding: [50, 50] });
+            }
+        }
+
+        function createSpotCard(spot) {
+            const availableCount = spot.availableCount ?? 0;
+            const isFull = availableCount <= 0;
+            const price = (spot.pricePerHour || 0).toFixed(2);
+            const isReservable = !isFull && isLoggedIn;
+            const buttonText = isFull ? 'Ausgebucht' : (isReservable ? 'Jetzt reservieren' : 'Login zum Reservieren');
+            const buttonClass = isReservable ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed';
+            const availabilityClass = isFull ? 'text-red-500 font-bold' : 'text-green-600 font-bold';
+            const availabilityText = isFull ? 'Belegt' : `Verfügbar (${availableCount} Plätze)`;
+
+            return `
+                <div id="spot-${spot.id}" class="bg-white p-5 rounded-xl shadow-lg hover:shadow-xl transition duration-300 border border-gray-200">
+                    <div class="flex justify-between items-start mb-3">
+                        <h3 class="text-lg font-semibold text-gray-800">${spot.name}</h3>
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full ${spot.type === 'Premium' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">${spot.type || 'Standard'}</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-2">${spot.location}</p>
+                    <p class="text-sm text-gray-700 mb-4">Preis: <strong>${price} €/Std.</strong></p>
+                    <p class="mb-4">
+                        Status: 
+                        <span class="${availabilityClass}">${availabilityText}</span> 
+                    </p>
+                    <div class="flex space-x-2">
+                        <button data-spot-id="${spot.id}" class="js-details-btn flex-grow bg-gray-300 text-gray-800 hover:bg-gray-400 p-2 rounded-lg transition duration-150">Details</button>
+                        <button data-spot-id="${spot.id}" class="js-reserve-btn flex-grow ${buttonClass} p-2 rounded-lg font-semibold transition duration-150" ${isReservable ? '' : 'disabled'}>${buttonText}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        /**
+         * Rendert die Liste der Parkplatz-Cards und hängt Event-Listener an.
+         * @param {Array<Object>} spots - Die zu rendernden Parkplätze.
+         */
+        function updateSpotList(spots) {
+            const listContainer = document.getElementById('parking-list');
+            const noSpotsMessage = document.getElementById('no-spots-message');
+
+            // Filtern nach Verfügbarkeit, da nur reservierbare Spots in der Liste erscheinen sollen
+            const availableSpots = spots.filter(spot => (spot.availableCount ?? 0) > 0);
+
+            listContainer.innerHTML = '';
+
+            if (availableSpots.length > 0) {
+                noSpotsMessage.classList.add('hidden');
+                listContainer.innerHTML = availableSpots.map(createSpotCard).join('');
+
+                listContainer.querySelectorAll('button.js-reserve-btn').forEach(button => {
+                    if (isLoggedIn && !button.disabled) {
+                        button.addEventListener('click', (e) => openReservationModal(e.currentTarget.dataset.spotId));
+                    }
+                });
+
+                listContainer.querySelectorAll('button.js-details-btn').forEach(button => {
+                    button.addEventListener('click', (e) => showSpotDetails(e.currentTarget.dataset.spotId));
+                });
+            } else {
+                noSpotsMessage.classList.remove('hidden');
+            }
+        }
+        
+        /**
+         * Führt die Suche durch und aktualisiert Karte und Liste.
+         */
+        function handleSearch(query) {
+            const normalizedQuery = query.toLowerCase().trim();
+            let spotsToDisplay = allParkingSpots;
+
+            if (normalizedQuery) {
+                spotsToDisplay = allParkingSpots.filter(spot => 
+                    (spot.location || '').toLowerCase().includes(normalizedQuery) ||
+                    (spot.city || '').toLowerCase().includes(normalizedQuery) ||
+                    (spot.name || '').toLowerCase().includes(normalizedQuery)
+                );
+            }
+
+            // Aktualisiert beide UI-Komponenten
+            updateMapMarkers(spotsToDisplay);
+            updateSpotList(spotsToDisplay);
+        }
+
+        /**
+         * Hauptfunktion zum Laden der Daten und Initialisieren der Ansicht.
+         */
+        async function loadParkingSpots() {
+            const loadingIndicator = document.getElementById('loading');
+            const errorArea = document.getElementById('error-message');
+
+            loadingIndicator.classList.remove('hidden');
+            errorArea.classList.add('hidden');
+
+            try {
+                const spots = await getAllSpots(); // Speichert in allParkingSpots
+                loadingIndicator.classList.add('hidden');
+                
+                // Beim ersten Laden alle Spots anzeigen
+                updateMapMarkers(spots);
+                updateSpotList(spots);
+
+            } catch (error) {
+                console.error("Fehler beim Laden der Parkplätze:", error.message);
+                loadingIndicator.classList.add('hidden');
+                document.getElementById('error-text').textContent = "Fehler beim Abrufen der Parkplatzdaten.";
+                errorArea.classList.remove('hidden');
+            }
+        }
+
+
+        // =======================================================
+        // 3. Modal- und Reservierungslogik
+        // =======================================================
+
+        /**
+         * Öffnet das Reservierungs-Modal und setzt die Spot-ID.
+         */
+        function openReservationModal(spotId) {
+            if (!isLoggedIn) {
+                displayStatus("Bitte melden Sie sich an, um eine Reservierung vorzunehmen.", false);
+                return;
+            }
+
+            const spot = allParkingSpots.find(s => s.id === spotId);
+            if (!spot) return;
+
+            activeSpotIdForReservation = spotId;
+            document.getElementById('modal-title').textContent = `Reservierung für ${spot.name}`;
+            document.getElementById('reservation-modal').classList.remove('hidden');
+            
+            // Setzt Standardwerte für Datum/Uhrzeit (heute / jetzt)
+            const now = new Date();
+            const dateString = now.toISOString().substring(0, 10);
+            const timeString = now.toTimeString().substring(0, 5);
+
+            document.getElementById('res-date').value = dateString;
+            document.getElementById('res-time').value = timeString;
+        }
+
+        /**
+         * Schließt das Reservierungs-Modal.
+         */
+        function closeModal() {
+            document.getElementById('reservation-modal').classList.add('hidden');
+            activeSpotIdForReservation = null;
+        }
+
+        /**
+         * Behandelt das Absenden des Reservierungsformulars.
+         */
+        function handleReservationSubmit(event) {
+            event.preventDefault();
+            
+            if (!activeSpotIdForReservation) {
+                closeModal();
+                return;
+            }
+
+            const date = document.getElementById('res-date').value;
+            const time = document.getElementById('res-time').value;
+            const durationHours = parseInt(document.getElementById('res-duration').value, 10);
+            
+            // Erzeugt einen ISO-String für das Backend
+            const startTime = `${date}T${time}:00`; 
+
+            // Überprüft, ob die Dauer gültig ist
+            if (isNaN(durationHours) || durationHours < 1 || durationHours > 24) {
+                 displayStatus("Die Reservierungsdauer muss zwischen 1 und 24 Stunden liegen.", false);
+                 return;
+            }
+
+            const reservationDetails = { startTime, durationHours };
+
+            // Schließt das Modal, bevor der asynchrone API-Aufruf erfolgt
+            closeModal(); 
+            
+            // Startet die Reservierung
+            reserveSpot(activeSpotIdForReservation, reservationDetails);
+        }
+
+        // =======================================================
+        // 4. Initialisierung und Event Listener
+        // =======================================================
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialisiert die Karte und lädt Daten
+            initializeMap();
+            await loadParkingSpots();
+
+            // Event Listener für die Detail-Sektion
+            const closeBtn = document.getElementById('close-details-btn');
+            if (closeBtn) closeBtn.addEventListener('click', () => {
+                document.getElementById('parking-details').classList.add('hidden');
+            });
+            
+            // Event Listener für die Suche
+            document.getElementById('search-button').addEventListener('click', () => {
+                const query = document.getElementById('city-search-input').value;
+                handleSearch(query);
+            });
+            document.getElementById('city-search-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const query = document.getElementById('city-search-input').value;
+                    handleSearch(query);
+                }
+            });
+
+            // Event Listener für das Reservierungs-Modal
+            document.getElementById('close-modal-btn').addEventListener('click', closeModal);
+            document.getElementById('reservation-form').addEventListener('submit', handleReservationSubmit);
+        });
+
+        // Machen Sie `releaseSpot` global verfügbar, falls es von EJS-Templates benötigt wird.
+        window.releaseSpot = releaseSpot;
+
+    </script>
+</body>
+</html>

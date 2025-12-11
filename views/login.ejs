@@ -1,0 +1,40 @@
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Anmelden</h2>
+        <p class="auth-subtitle">Melden Sie sich an, um Ihre Reservierungen zu verwalten.</p>
+
+        <!-- Fehlermeldungen anzeigen, falls vorhanden -->
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <!-- Erfolgsmeldungen (z.B. nach erfolgreicher Registrierung) anzeigen -->
+        <% if (typeof success !== 'undefined' && success) { %>
+            <div class="alert alert-success">
+                <%= success %>
+            </div>
+        <% } %>
+
+        <!-- Das Formular sendet die Daten per POST an /users/login (diese Route muss noch implementiert werden) -->
+        <form action="/users/login" method="POST" class="auth-form">
+            
+            <div class="form-group">
+                <label for="email">E-Mail-Adresse</label>
+                <input type="email" id="email" name="email" placeholder="name@beispiel.de" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Passwort</label>
+                <input type="password" id="password" name="password" placeholder="Ihr Passwort" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-large">Einloggen</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Noch kein Konto? <a href="/users/register">Hier kostenlos registrieren</a></p>
+        </div>
+    </div>
+</div>

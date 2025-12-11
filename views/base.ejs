@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title || 'Willkommen' %> | SmartParking App</title>
+    <link rel="stylesheet" href="/stylesheets/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+        <link rel="icon" type="image/png" href="/images/favicon.png">
+
+</head>
+<body>
+    <header class="main-header">
+        <div class="container header-content">
+            <div class="logo">
+                <a href="/">Smart<span class="highlight">Parking</span></a>
+            </div>
+            <nav class="main-nav">
+                    <ul>
+                        <li><a href="/">Start</a></li>
+                        <li><a href="/parking">Parken</a></li>
+                            
+
+                        <% if (isLoggedIn) { %>
+                                                        <li><a href="/reservations/history">Meine Reservierungen</a></li>
+
+                            <li class="user-info">
+                                <a href="/users/profil" class="btn btn-secondary">
+                                    Hallo, <%= user.firstName %>!
+                                </a>
+                            </li>
+                            <li><a href="/users/logout" class="btn btn-primary">Logout</a></li>
+                        <% } else { %>
+                            <li><a href="/users/login" class="btn btn-secondary">Login</a></li>
+                            <li><a href="/users/register" class="btn btn-primary">Registrieren</a></li>
+                        <% } %>
+                    </ul>
+                </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <%- body %>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <p>&copy; <%= new Date().getFullYear() %> SmartParking App. Alle Rechte vorbehalten.</p>
+        </div>
+    </footer>
+</body>
+</html>

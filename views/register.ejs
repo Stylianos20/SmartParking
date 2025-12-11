@@ -1,0 +1,57 @@
+<div class="auth-container">
+    <div class="auth-card">
+        <h2>Kostenlos registrieren</h2>
+        <p class="auth-subtitle">Erstellen Sie ein Konto, um Parkplätze zu reservieren.</p>
+
+        <!-- Fehlermeldungen anzeigen, falls vorhanden -->
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <!-- Erfolgsmeldungen anzeigen, falls vorhanden -->
+        <% if (typeof success !== 'undefined' && success) { %>
+            <div class="alert alert-success">
+                <%= success %>
+            </div>
+        <% } %>
+
+        <!-- Das Formular sendet die Daten per POST an /users/register -->
+        <form action="/users/register" method="POST" class="auth-form">
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="firstName">Vorname</label>
+                    <input type="text" id="firstName" name="firstName" placeholder="Max" required>
+                </div>
+                <div class="form-group">
+                    <label for="lastName">Nachname</label>
+                    <input type="text" id="lastName" name="lastName" placeholder="Mustermann" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">E-Mail-Adresse</label>
+                <input type="email" id="email" name="email" placeholder="name@beispiel.de" required>
+            </div>
+
+            <div class="form-group">
+                <label for="vehicleLicense">KFZ-Kennzeichen</label>
+                <input type="text" id="vehicleLicense" name="vehicleLicense" placeholder="M-AB 123" required>
+                <small>Wird für die Kennzeichenerkennung im Parkhaus benötigt.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Passwort</label>
+                <input type="password" id="password" name="password" placeholder="Mindestens 8 Zeichen" required minlength="8">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block btn-large">Jetzt registrieren</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Sie haben bereits ein Konto? <a href="/users/login">Hier einloggen</a></p>
+        </div>
+    </div>
+</div>

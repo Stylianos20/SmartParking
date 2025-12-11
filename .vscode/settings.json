@@ -1,0 +1,8 @@
+{
+    "appService.zipIgnorePattern": [
+        "node_modules{,/**}",
+        ".vscode{,/**}"
+    ],
+    "appService.defaultWebAppToDeploy": "/subscriptions/eb60c3f6-bf90-4c2c-9394-d6b28029fbb0/resourceGroups/SmartParking/providers/Microsoft.Web/sites/SmartParking",
+    "appService.deploySubpath": "."
+}

@@ -1,0 +1,66 @@
+<div class="profile-container">
+    <div class="profile-card">
+        <h2>Willkommen, <%= user.firstName %></h2>
+        <p class="auth-subtitle">Dies ist Ihr persönlicher Kontobereich.</p>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="alert alert-error">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <!-- KONTO-INFORMATIONEN -->
+        <section class="info-section">
+            <h3>Ihre Daten</h3>
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="label">Name:</span>
+                    <span class="value"><%= user.firstName %> <%= user.lastName %></span>
+                </div>
+                <div class="data-item">
+                    <span class="label">E-Mail:</span>
+                    <span class="value"><%= user.email %></span>
+                </div>
+                <div class="data-item">
+                    <span class="label">KFZ-Kennzeichen:</span>
+                    <span class="value highlight"><%= user.vehicleLicense %></span>
+                </div>
+                <div class="data-item">
+                    <span class="label">Mitglied seit:</span>
+                    <!-- Formatierung des Datums -->
+                    <span class="value"><%= new Date(user.creationDate).toLocaleDateString('de-DE') %></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- RESERVIERUNGEN (Platzhalter für zukünftige Logik) -->
+        <section class="reservations-section">
+            
+    <h3>Aktive Reservierungen</h3>
+    
+    <% if (user.reservedSpotId && user.reservationEndTime) { %>
+        <div class="active-reservation-card">
+            <h4 class="highlight">Parkplatz-ID: <%= user.reservedSpotId %></h4>
+            <p>Reservierung läuft seit: **<%= new Date(user.reservationTime).toLocaleDateString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>**</p>
+            <p>Gültig bis: 
+                <span class="highlight-time">
+                    <%= new Date(user.reservationEndTime).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) %> 
+                    um 
+                    <%= new Date(user.reservationEndTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) %> Uhr
+                </span>
+            </p>
+            <p>Ihre Reservierungs-ID: <span class="value"><%= user.activeReservationId %></span></p>
+
+            <button class="btn btn-danger" id="releaseSpotBtn" data-spot-id="<%= user.reservedSpotId %>">
+                Reservierung freigeben
+            </button>
+        </div>
+    <% } else { %>
+        <div class="alert alert-info">
+            Derzeit haben Sie keine aktiven Parkplatz-Reservierungen.
+        </div>
+        <a href="/parking" class="btn btn-primary btn-small">Parkplatz reservieren</a>
+    <% } %>
+</section>
+            
+
