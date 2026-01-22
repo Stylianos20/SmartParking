@@ -165,12 +165,46 @@ router.post('/forgot-password', async (req, res) => {
 });
 
         const resetUrl = `https://${req.headers.host}/users/reset-password/${token}`;
+
+await transporter.sendMail({
+    to: user.email,
+    subject: 'Passwort zurücksetzen - SmartParking',
+    html: `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #0078d4; padding: 20px; text-align: center;">
+            <img src="cid:smartlogo" alt="SmartParking Logo" style="width: 80px; height: auto; margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">SmartParking</h1>
+        </div>
         
-        await transporter.sendMail({
-            to: user.email,
-            subject: 'Passwort zurücksetzen - SmartParking',
-            text: `Klicken Sie hier, um Ihr Passwort zurückzusetzen: ${resetUrl}`
-        });
+        <div style="padding: 30px; line-height: 1.6; color: #333333;">
+            <h2 style="color: #0078d4;">Passwort zurücksetzen</h2>
+            <p>Hallo,</p>
+            <p>wir haben eine Anfrage zum Zurücksetzen deines Passworts für dein SmartParking-Konto erhalten. Klicke auf den unteren Button, um ein neues Passwort festzulegen:</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetUrl}" 
+                   style="background-color: #0078d4; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                   Neues Passwort festlegen
+                </a>
+            </div>
+            
+            <p style="font-size: 0.9em; color: #666666;">
+                Dieser Link ist für <strong>60 Minuten</strong> gültig. Wenn du diese Anfrage nicht gestellt hast, kannst du diese E-Mail einfach ignorieren. Dein Passwort bleibt unverändert.
+            </p>
+        </div>
+        
+        <div style="background-color: #f9f9f9; padding: 15px; text-align: center; font-size: 0.8em; color: #999999; border-top: 1px solid #e0e0e0;">
+            <p>&copy; 2026 SmartParking Projekt Team<br>Azure Cloud Services</p>
+        </div>
+    </div>
+    `,
+    // Das Attachment sorgt dafür, dass das Bild in der E-Mail landet
+    attachments: [{
+        filename: 'favicon.png',
+        path: './public/images/favicon.png', // Prüfe, ob dein Bild wirklich hier liegt!
+        cid: 'smartlogo' // Muss exakt wie oben im img-Tag heißen
+    }]
+});
 
         res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: 'E-Mail wurde gesendet!' });
     } catch (err) {
@@ -207,8 +241,6 @@ router.get('/reset-password/:token', async (req, res) => {
 });
 
 // 4. POST /users/reset/:token - Passwort speichern
-// ACHTUNG: Der Pfad muss zum Formular passen! 
-// Wenn dein Formular auf /users/reset-password/ geht, änder es hier auf '/reset-password/:token'
 router.post('/reset-password/:token', async (req, res) => {
     try {
         const { token } = req.params;
