@@ -150,13 +150,15 @@ router.post('/forgot-password', async (req, res) => {
         await db.updateUser(user);
 
         // E-Mail Konfiguration (Beispiel für Gmail oder Azure Communication Services)
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // Oder dein SMTP Provider
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
+      const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // Muss für Port 465 true sein
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS // Ohne Leerzeichen in Azure hinterlegt!
+    }
+});
 
         const resetUrl = `https://${req.headers.host}/users/reset/${token}`;
         
