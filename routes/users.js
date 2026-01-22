@@ -184,7 +184,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // 3. GET /reset/:token - Seite anzeigen
-router.get('/reset/:token', async (req, res) => {
+router.get('/reset-password/:token', async (req, res) => {
     try {
         const user = await db.getUserByResetToken(req.params.token);
         
@@ -206,38 +206,49 @@ router.get('/reset/:token', async (req, res) => {
     }
 });
 
-// 4. POST /reset/:token - Passwort speichern
-router.post('/reset/:token', async (req, res) => {
+// 4. POST /users/reset/:token - Passwort speichern
+// ACHTUNG: Der Pfad muss zum Formular passen! 
+// Wenn dein Formular auf /users/reset-password/ geht, änder es hier auf '/reset-password/:token'
+router.post('/reset-password/:token', async (req, res) => {
     try {
         const { token } = req.params;
-        const { password } = req.body;
+        const { password, confirmPassword } = req.body; // Beide Felder auslesen!
 
-        // User suchen
-        const user = await db.getUserByResetToken(token);
-        if (!user || user.resetPasswordExpires < Date.now()) {
-            return res.render('forgot-password', { 
-                title: 'Passwort vergessen', 
-                error: 'Token ungültig.', 
+        // 1. Check: Stimmen die Passwörter überein?
+        if (password !== confirmPassword) {
+            return res.render('reset-password', { 
+                title: 'Neues Passwort', 
+                token: token,
+                error: 'Die Passwörter stimmen nicht überein.',
                 success: null 
             });
         }
 
-        // 1. Neues Passwort hashen
+        // 2. User suchen
+        const user = await db.getUserByResetToken(token);
+        if (!user || user.resetPasswordExpires < Date.now()) {
+            return res.render('forgot-password', { 
+                title: 'Passwort vergessen', 
+                error: 'Der Link ist ungültig oder abgelaufen.', 
+                success: null 
+            });
+        }
+
+        // 3. Passwort hashen
         const salt = await bcrypt.genSalt(10);
         user.passwordHash = await bcrypt.hash(password, salt);
 
-        // 2. Token Felder leeren (Wichtig: auf null setzen für Cosmos DB)
+        // 4. Token leeren (null statt undefined für Cosmos DB!)
         user.resetPasswordToken = null;
         user.resetPasswordExpires = null;
 
-        // 3. Datenbank Update
-        // WICHTIG: Deine db.updateUser(user) muss funktionieren!
+        // 5. Update in Datenbank
         await db.updateUser(user);
 
-        // 4. Erfolg: Zurück zum Login
+        // 6. Erfolg: Zum Login weiterleiten
         res.render('login', { 
             title: 'Anmelden', 
-            success: 'Dein Passwort wurde geändert. Du kannst dich jetzt einloggen.', 
+            success: 'Dein Passwort wurde erfolgreich geändert!', 
             error: null 
         });
 
@@ -245,12 +256,11 @@ router.post('/reset/:token', async (req, res) => {
         console.error("Fehler beim Passwort-Reset:", err);
         res.render('reset-password', { 
             title: 'Neues Passwort', 
-            error: 'Fehler beim Speichern in der Datenbank.', 
+            error: 'Datenbankfehler beim Speichern.', 
             token: req.params.token 
         });
     }
 });
-
 
 
 module.exports = router;
