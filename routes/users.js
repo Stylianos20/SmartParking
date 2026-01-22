@@ -183,31 +183,71 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-// 3. GET /reset/:token (Die Seite zum neuen Passwort eingeben)
+// 3. GET /reset/:token - Seite anzeigen
 router.get('/reset/:token', async (req, res) => {
-    const user = await db.getUserByResetToken(req.params.token);
-    if (!user || user.resetPasswordExpires < Date.now()) {
-        return res.render('forgot-password', { title: 'Passwort vergessen', error: 'Token ist ungültig oder abgelaufen.', success: null });
-    }
-    res.render('reset-password', { title: 'Neues Passwort vergeben', token: req.params.token, error: null });
-});
-
-// 4. POST /reset/:token (Das neue Passwort speichern)
-router.post('/reset/:token', async (req, res) => {
     try {
         const user = await db.getUserByResetToken(req.params.token);
+        
         if (!user || user.resetPasswordExpires < Date.now()) {
-            return res.render('forgot-password', { title: 'Passwort vergessen', error: 'Token ist ungültig.', success: null });
+            return res.render('forgot-password', { 
+                title: 'Passwort vergessen', 
+                error: 'Der Link ist ungültig oder abgelaufen.', 
+                success: null 
+            });
+        }
+        
+        res.render('reset-password', { 
+            title: 'Neues Passwort vergeben', 
+            token: req.params.token, 
+            error: null 
+        });
+    } catch (err) {
+        res.redirect('/users/forgot-password');
+    }
+});
+
+// 4. POST /reset/:token - Passwort speichern
+router.post('/reset/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        // User suchen
+        const user = await db.getUserByResetToken(token);
+        if (!user || user.resetPasswordExpires < Date.now()) {
+            return res.render('forgot-password', { 
+                title: 'Passwort vergessen', 
+                error: 'Token ungültig.', 
+                success: null 
+            });
         }
 
-        user.passwordHash = await bcrypt.hash(req.body.password, 10);
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
+        // 1. Neues Passwort hashen
+        const salt = await bcrypt.genSalt(10);
+        user.passwordHash = await bcrypt.hash(password, salt);
 
+        // 2. Token Felder leeren (Wichtig: auf null setzen für Cosmos DB)
+        user.resetPasswordToken = null;
+        user.resetPasswordExpires = null;
+
+        // 3. Datenbank Update
+        // WICHTIG: Deine db.updateUser(user) muss funktionieren!
         await db.updateUser(user);
-        res.render('login', { title: 'Anmelden', success: 'Passwort erfolgreich geändert! Du kannst dich jetzt einloggen.', error: null });
+
+        // 4. Erfolg: Zurück zum Login
+        res.render('login', { 
+            title: 'Anmelden', 
+            success: 'Dein Passwort wurde geändert. Du kannst dich jetzt einloggen.', 
+            error: null 
+        });
+
     } catch (err) {
-        res.render('reset-password', { title: 'Neues Passwort', error: 'Fehler beim Speichern.', token: req.params.token });
+        console.error("Fehler beim Passwort-Reset:", err);
+        res.render('reset-password', { 
+            title: 'Neues Passwort', 
+            error: 'Fehler beim Speichern in der Datenbank.', 
+            token: req.params.token 
+        });
     }
 });
 
