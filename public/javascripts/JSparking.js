@@ -130,13 +130,14 @@ async function releaseSpot() {
 
 function initializeMap() {
         const bounds = L.latLngBounds(
-        [50.06, 8.32], // Süd-West
-        [50.60, 9.18]  // Nord-Ost
+        [50.29, 8.69], // ~5 km Süd-West
+        [50.37, 8.81]  // ~5 km Nord-Ost
     );
     map = L.map('mapid', {
         maxBounds: bounds,
-        maxBoundsViscosity: 1.0
-    }).setView([50.33084440448259, 8.751109034916668], 13);
+        maxBoundsViscosity: 1.0,
+        minZoom: 12,
+    }).setView([50.33084440448259, 8.751109034916668], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
