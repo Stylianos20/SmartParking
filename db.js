@@ -44,68 +44,84 @@ async function updateSpotStatus(spot) {
 // --- RESERVIERUNGEN ---
 
 async function createReservation(spotId, userId) {
-    const partitionKey = spotId; // PartitionKey des Parkplatzes ist die spotId
+    const partitionKey = spotId;
 
-    // 1. Hole den Parkplatz
+    // 1. Parkplatz holen
     const spot = await getSpotById(spotId, partitionKey);
-    if (!spot) return { error: `Parkplatz mit ID ${spotId} nicht gefunden.` };
+    if (!spot) {
+        return { error: `Parkplatz mit ID ${spotId} nicht gefunden.` };
+    }
 
-    // 2. Prüfen, ob dieser Nutzer schon eine aktive Reservierung für diesen Spot hat
-    const existingReservations = await reservationContainer.items
-        .query({
-            query: 'SELECT * FROM Reservierungen r WHERE r.spotId=@spotId AND r.userId=@userId AND r.status="active"',
+    // 2. User holen (Kennzeichen)
+    const { resource: user } = await userContainer.item(userId, userId).read();
+    if (!user || !user.vehicleLicense) {
+        return { error: "Kein Kennzeichen für diesen Nutzer hinterlegt." };
+    }
+    const licensePlate = user.vehicleLicense;
+
+    // 3. Prüfen: aktive Reservierung
+    const { resources: existing } =
+        await reservationContainer.items.query({
+            query: `
+              SELECT * FROM Reservierungen r
+              WHERE r.spotId=@spotId
+                AND r.userId=@userId
+                AND r.status="active"
+            `,
             parameters: [
                 { name: '@spotId', value: spotId },
                 { name: '@userId', value: userId }
             ]
         }).fetchAll();
 
-    if (existingReservations.resources.length > 0) {
+    if (existing.length > 0) {
         return { error: "Du hast diesen Parkplatz bereits reserviert!" };
     }
 
-    // 3. Prüfen, ob noch freie Plätze vorhanden sind
-    const availableCount = spot.availableCount ?? 0;
-    if (availableCount <= 0) { 
+    // 4. Verfügbarkeit
+    if ((spot.availableCount ?? 0) <= 0) {
         return { error: "Parkplatz ist derzeit belegt oder nicht verfügbar." };
     }
 
     try {
-        // 4. Erstelle neue Reservierung
+        // ⏱️ 5. ZEITEN (klar definiert)
+        const now = new Date();
+        const startTime = now.toISOString();                  // ✅ Start-Uhrzeit
+        const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString();
+
         const reservationId = crypto.randomUUID();
-        const reservationDurationMs = 2 * 60 * 60 * 1000; // 2 Stunden
-        const startTime = new Date().toISOString();
-        const endTime = new Date(Date.now() + reservationDurationMs).toISOString();
 
         const newReservation = {
             id: reservationId,
             spotId: spot.id,
-            userId: userId,
-            startTime,
+            userId,
+            licensePlate,
+            startTime,           // ✅ wichtig
             endTime,
             status: 'active',
             partitionKey: userId
-        // PartitionKey für Reservierung
         };
 
-        await reservationContainer.items.create(newReservation, { partitionKey: newReservation.partitionKey });
+        await reservationContainer.items.create(newReservation, {
+            partitionKey: userId
+        });
 
-        // 5. Parkplatz-Status aktualisieren
-        spot.availableCount = spot.availableCount - 1;
+        // 6. Parkplatz aktualisieren
+        spot.availableCount -= 1;
         spot.activeReservationId = reservationId;
+        await updateSpotStatus(spot);
 
-        await updateSpotStatus(spot); // Mit ETag-Check
-
-        return { 
-            reservationId, 
-            message: "Reservierung erfolgreich.", 
-            startTime, 
-            endTime 
+        return {
+            reservationId,
+            licensePlate,
+            startTime,
+            endTime,
+            message: "Reservierung erfolgreich."
         };
 
     } catch (error) {
         console.error("Cosmos DB Fehler bei Reservierung:", error.message);
-        throw new Error("Fehler beim Erstellen der Reservierung. Bitte versuchen Sie es erneut.");
+        throw new Error("Fehler beim Erstellen der Reservierung.");
     }
 }
 
@@ -231,6 +247,10 @@ async function getSpotById(spotId, partitionKey = spotId) {
         throw new Error("Fehler beim Abrufen des spezifischen Parkplatzes.");
     }
 }
+
+// --- Rechnungen ---
+
+
 
 // --- EXPORT ---
 
