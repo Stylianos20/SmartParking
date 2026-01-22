@@ -60,7 +60,6 @@ app.use('/reservations', reservationRouter);
 
 app.use('/malsehen', malsehenRouter);
 
-app.use('/api/bills', billsRouter);
 
 
 // --- 404 Handler ---
