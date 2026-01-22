@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
+const nodemailer = require('nodemailer');
 
 // --- Auth Middleware ---
 function isAuthenticated(req, res, next) {
@@ -123,6 +124,82 @@ router.get('/status', (req, res) => {
     }
 });
 
+
+
+const nodemailer = require('nodemailer'); // Ganz oben importieren
+
+// 1. GET /forgot-password (Die Seite anzeigen)
+router.get('/forgot-password', (req, res) => {
+    res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: null });
+});
+
+// 2. POST /forgot-password (E-Mail prüfen & Token senden)
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await db.getUserByEmail(email);
+        if (!user) {
+            // Aus Sicherheitsgründen oft die gleiche Nachricht wie beim Erfolg
+            return res.render('forgot-password', { title: 'Passwort vergessen', error: 'Email nicht gefunden.', success: null });
+        }
+
+        const token = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 Stunde gültig
+
+        await db.updateUser(user);
+
+        // E-Mail Konfiguration (Beispiel für Gmail oder Azure Communication Services)
+        const transporter = nodemailer.createTransport({
+            service: 'gmail', // Oder dein SMTP Provider
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+        const resetUrl = `http://${req.headers.host}/users/reset/${token}`;
+        
+        await transporter.sendMail({
+            to: user.email,
+            subject: 'Passwort zurücksetzen - SmartParking',
+            text: `Klicken Sie hier, um Ihr Passwort zurückzusetzen: ${resetUrl}`
+        });
+
+        res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: 'E-Mail wurde gesendet!' });
+    } catch (err) {
+        console.error(err);
+        res.render('forgot-password', { title: 'Passwort vergessen', error: 'Fehler beim Senden der E-Mail.', success: null });
+    }
+});
+
+// 3. GET /reset/:token (Die Seite zum neuen Passwort eingeben)
+router.get('/reset/:token', async (req, res) => {
+    const user = await db.getUserByResetToken(req.params.token);
+    if (!user || user.resetPasswordExpires < Date.now()) {
+        return res.render('forgot-password', { title: 'Passwort vergessen', error: 'Token ist ungültig oder abgelaufen.', success: null });
+    }
+    res.render('reset-password', { title: 'Neues Passwort vergeben', token: req.params.token, error: null });
+});
+
+// 4. POST /reset/:token (Das neue Passwort speichern)
+router.post('/reset/:token', async (req, res) => {
+    try {
+        const user = await db.getUserByResetToken(req.params.token);
+        if (!user || user.resetPasswordExpires < Date.now()) {
+            return res.render('forgot-password', { title: 'Passwort vergessen', error: 'Token ist ungültig.', success: null });
+        }
+
+        user.passwordHash = await bcrypt.hash(req.body.password, 10);
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+
+        await db.updateUser(user);
+        res.render('login', { title: 'Anmelden', success: 'Passwort erfolgreich geändert! Du kannst dich jetzt einloggen.', error: null });
+    } catch (err) {
+        res.render('reset-password', { title: 'Neues Passwort', error: 'Fehler beim Speichern.', token: req.params.token });
+    }
+});
 
 
 

@@ -192,6 +192,22 @@ async function registerUser(user) {
     return resource;
 }
 
+
+async function updateUser(user) {
+    const { resource } = await userContainer.item(user.id, user.id).replace(user);
+    return resource;
+}
+
+async function getUserByResetToken(token) {
+    const querySpec = {
+        query: 'SELECT * FROM Benutzer b WHERE b.resetPasswordToken=@token',
+        parameters: [{ name: '@token', value: token }]
+    };
+    const { resources } = await userContainer.items.query(querySpec).fetchAll();
+    return resources[0];
+}
+
+
 // --- PARKPLÄTZE ---
 
 async function getAllSpots() {
@@ -226,5 +242,7 @@ module.exports = {
     updateSpotStatus,
     createReservation,
     releaseReservation,
-    getAllReservationsForUser
+    getAllReservationsForUser,
+    updateUser,
+    getUserByResetToken
 };
