@@ -194,8 +194,14 @@ async function registerUser(user) {
 
 
 async function updateUser(user) {
-    const { resource } = await userContainer.item(user.id, user.id).replace(user);
-    return resource;
+    try {
+        // user.id ist die ID, user.email ist dein Partition Key
+        const { resource } = await userContainer.item(user.id, user.email).replace(user);
+        return resource;
+    } catch (error) {
+        console.error("Fehler beim Datenbank-Update:", error.message);
+        throw error;
+    }
 }
 
 async function getUserByResetToken(token) {
