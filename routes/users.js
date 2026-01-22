@@ -151,13 +151,14 @@ router.post('/forgot-password', async (req, res) => {
 
         // E-Mail Konfiguration (Beispiel für Gmail oder Azure Communication Services)
       const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // Muss für Port 465 true sein
-    auth: {
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // Muss für Port 465 true sein
+            auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS // Ohne Leerzeichen in Azure hinterlegt!
-    }
+    } 
+    
 });
 
         const resetUrl = `https://${req.headers.host}/users/reset/${token}`;
@@ -170,8 +171,12 @@ router.post('/forgot-password', async (req, res) => {
 
         res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: 'E-Mail wurde gesendet!' });
     } catch (err) {
-        console.error(err);
-        res.render('forgot-password', { title: 'Passwort vergessen', error: 'Fehler beim Senden der E-Mail.', success: null });
+        console.error("DEBUG E-MAIL FEHLER:", err); // Zeigt Details im Azure Log-Stream
+    res.render('forgot-password', { 
+        title: 'Passwort vergessen', 
+        error: `Fehler: ${err.message}`, // Zeigt den genauen Fehler auf der Webseite an
+        success: null 
+    });
     }
 });
 
