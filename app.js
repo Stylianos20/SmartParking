@@ -28,6 +28,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+
 // === SESSION MIDDLEWARE ===
 app.use(session({
     secret: process.env.SESSION_SECRET || 'EinSehrSicheresGeheimnis',
@@ -58,6 +59,8 @@ app.use('/parking/api', reservationRouter);
 app.use('/reservations', reservationRouter); 
 
 app.use('/malsehen', malsehenRouter);
+
+app.use('/api/bills', billsRouter);
 
 
 // --- 404 Handler ---

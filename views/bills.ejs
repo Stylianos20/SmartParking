@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rechnungen - Smart Parking</title>
+  <link rel="stylesheet" href="/styles.css"> <!-- Dein CSS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Meine Rechnungen</h2>
+    <a href="/dashboard" class="btn">Zurück zum Dashboard</a>
+    <button onclick="generatePDF()">PDF Export</button>
+    
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Eintritt</th><th>Ausfahrt</th><th>Dauer</th><th>Kosten</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% bills.forEach(bill => { %>
+        <tr>
+          <td><%= bill.id %></td>
+          <td><%= new Date(bill.entryTime).toLocaleString('de-DE') %></td>
+          <td><%= new Date(bill.exitTime).toLocaleString('de-DE') %></td>
+          <td><%= bill.durationMinutes %> Min.</td>
+          <td>€<%= bill.cost %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    
+    <% if (!bills.length) { %>
+      <p>Keine Rechnungen vorhanden.</p>
+    <% } %>
+  </div>
+
+  <script>
+    function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let y = 20;
+      doc.text('Smart Parking Rechnungen', 20, y);
+      y += 10;
+      <% bills.forEach(bill => { %>
+        doc.text('ID: <%= bill.id %>, Dauer: <%= bill.durationMinutes %>min, €<%= bill.cost %>', 20, y);
+        y += 10;
+      <% }); %>
+      doc.save('parking-rechnungen.pdf');
+    }
+  </script>
+</body>
+</html>
