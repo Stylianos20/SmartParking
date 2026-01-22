@@ -193,9 +193,17 @@ async function registerUser(user) {
 }
 
 
+// Ändere diese Funktion in deiner db.js:
 async function updateUser(user) {
-    const { resource } = await userContainer.item(user.id, user.id).replace(user);
-    return resource;
+    try {
+        // user.id ist die ID des Dokuments
+        // user.email ist dein Partition Key (/email)
+        const { resource } = await userContainer.item(user.id, user.email).replace(user);
+        return resource;
+    } catch (error) {
+        console.error("Fehler in db.updateUser:", error.message);
+        throw error;
+    }
 }
 
 async function getUserByResetToken(token) {

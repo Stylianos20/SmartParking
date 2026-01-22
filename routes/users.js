@@ -156,7 +156,7 @@ router.post('/forgot-password', async (req, res) => {
             secure: true, // Muss für Port 465 true sein
             auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS // Ohne Leerzeichen in Azure hinterlegt!
+        pass: process.env.EMAIL_PASS 
     } 
     
 });
