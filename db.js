@@ -209,9 +209,22 @@ async function registerUser(user) {
 }
 
 
+// Ändere diese Funktion in deiner db.js:
 async function updateUser(user) {
-    const { resource } = await userContainer.item(user.id, user.id).replace(user);
-    return resource;
+    try {
+        // Wir müssen den Wert aus dem Feld 'email' nehmen, 
+        // aber Cosmos DB sagen, dass er für den Partition Key '/email' bestimmt ist.
+        const pk = user.email; 
+
+        const { resource } = await userContainer
+            .item(user.id, pk)
+            .replace(user);
+            
+        return resource;
+    } catch (error) {
+        console.error("Fehler bei updateUser:", error.message);
+        throw error;
+    }
 }
 
 async function getUserByResetToken(token) {

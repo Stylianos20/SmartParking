@@ -150,15 +150,21 @@ router.post('/forgot-password', async (req, res) => {
         await db.updateUser(user);
 
         // E-Mail Konfiguration (Beispiel für Gmail oder Azure Communication Services)
-        const transporter = nodemailer.createTransport({
-            service: 'gmail', // Oder dein SMTP Provider
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
+ const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, 
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        // Dies verhindert, dass Azure die Verbindung abbricht
+        rejectUnauthorized: false 
+    }
+});
 
-        const resetUrl = `http://${req.headers.host}/users/reset/${token}`;
+        const resetUrl = `https://${req.headers.host}/users/reset/${token}`;
         
         await transporter.sendMail({
             to: user.email,
@@ -168,8 +174,12 @@ router.post('/forgot-password', async (req, res) => {
 
         res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: 'E-Mail wurde gesendet!' });
     } catch (err) {
-        console.error(err);
-        res.render('forgot-password', { title: 'Passwort vergessen', error: 'Fehler beim Senden der E-Mail.', success: null });
+        console.error("DEBUG E-MAIL FEHLER:", err); // Zeigt Details im Azure Log-Stream
+    res.render('forgot-password', { 
+        title: 'Passwort vergessen', 
+        error: `Fehler: ${err.message}`, // Zeigt den genauen Fehler auf der Webseite an
+        success: null 
+    });
     }
 });
 
