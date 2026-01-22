@@ -164,7 +164,7 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-        const resetUrl = `https://${req.headers.host}/users/reset/${token}`;
+        const resetUrl = `https://${req.headers.host}/users/reset-password/${token}`;
         
         await transporter.sendMail({
             to: user.email,
