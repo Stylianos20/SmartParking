@@ -61,7 +61,6 @@ app.use('/reservations', reservationRouter);
 app.use('/malsehen', malsehenRouter);
 
 
-
 // --- 404 Handler ---
 app.use((req, res, next) => next(createError(404)));
 
