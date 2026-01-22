@@ -196,12 +196,18 @@ async function registerUser(user) {
 // Ändere diese Funktion in deiner db.js:
 async function updateUser(user) {
     try {
-        // user.id ist die ID des Dokuments
-        // user.email ist dein Partition Key (/email)
+        // Sicherstellen, dass id und email vorhanden sind
+        if (!user.id || !user.email) {
+            throw new Error(`Fehlende Daten: ID=${user.id}, Email=${user.email}`);
+        }
+
+        console.log(`Versuche Update für ID: ${user.id} mit PartitionKey: ${user.email}`);
+
+        // Wir nutzen user.email, weil dein Partition Key laut Azure "/email" ist
         const { resource } = await userContainer.item(user.id, user.email).replace(user);
         return resource;
     } catch (error) {
-        console.error("Fehler in db.updateUser:", error.message);
+        console.error("Cosmos DB Update Fehler Details:", error.body || error.message);
         throw error;
     }
 }
