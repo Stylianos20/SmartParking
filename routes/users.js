@@ -126,7 +126,7 @@ router.get('/status', (req, res) => {
 
 
 
-const nodemailer = require('nodemailer'); // Ganz oben importieren
+// --- PASSWORT ZURÜCKSETZEN ---
 
 // 1. GET /forgot-password (Die Seite anzeigen)
 router.get('/forgot-password', (req, res) => {
