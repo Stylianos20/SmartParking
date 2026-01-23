@@ -93,9 +93,8 @@ async function reserveSpot(spotId) {
 /**
  * Gibt die aktive Reservierung frei. Die IDs werden serverseitig aus der Session gelesen.
  */
-async function releaseSpot() {
-    // Bestätigung (in einer Produktionsumgebung durch ein UI-Modal ersetzen)
-    if (!confirm(`Sind Sie sicher, dass Sie Ihre aktive Reservierung freigeben möchten?`)) {
+async function releaseSpot(spotId) { // <-- Hier spotId hinzufügen
+    if (!confirm(`Sind Sie sicher, dass Sie den Parkplatz ${spotId} freigeben möchten?`)) {
         return;
     }
 
@@ -103,23 +102,19 @@ async function releaseSpot() {
         const response = await fetch(`${API_BASE_URL}/release`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // Body ist leer, da Server IDs aus Session liest
+            // Schick die spotId im Body mit, damit der Server Bescheid weiß
+            body: JSON.stringify({ spotId: spotId }) 
         });
 
         const result = await response.json();
 
         if (response.ok) {
-            displayStatus(result.message || `Reservierung erfolgreich freigegeben!`, true);
-            // Nach erfolgreicher Freigabe die Seite neu laden, um den Zustand und die Historie zu aktualisieren
             window.location.reload(); 
         } else {
-            // Behandelt 400 (keine aktive Reservierung) oder 500 Fehler
-            displayStatus(result.message || "Freigabe der Reservierung fehlgeschlagen.", false);
+            alert(result.message || "Fehler beim Freigeben.");
         }
-
     } catch (error) {
-        console.error("Fehler beim Freigeben des Parkplatzes:", error);
-        displayStatus("Ein Netzwerkfehler ist aufgetreten. Bitte versuchen Sie es erneut.", false);
+        console.error("Fehler:", error);
     }
 }
 

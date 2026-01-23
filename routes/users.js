@@ -97,11 +97,51 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// --- GET /profil ---
-router.get('/profil', isAuthenticated, (req, res) => {
-    res.render('profil', { title: 'Mein Profil', user: req.session.user, error: null });
-});
+router.get('/profil', isAuthenticated, async (req, res) => {
+    try {
+        // 1. Alle Reservierungen des Nutzers holen
+        const allReservations = await db.getAllReservationsForUser(req.session.userId);
+        
+        // 2. Nur die aktiven filtern
+        const activeOnly = allReservations.filter(r => r.status === 'active');
 
+        // 3. Jede Reservierung mit echten Daten aus der Parkplatz-Tabelle anreichern
+        const enrichedReservations = await Promise.all(activeOnly.map(async (resrv) => {
+            try {
+                // Wir fragen die Parkplatz-Tabelle nach der ID
+                const spotDetails = await db.getSpotById(resrv.spotId);
+                
+                return {
+                    ...resrv,
+                    // Hier kommen die menschlichen Infos rein:
+                    spotName: spotDetails ? spotDetails.name : "Unbekannter Ort",
+                    stadt: spotDetails ? spotDetails.stadt : "Stadt unbekannt",
+                    street: spotDetails ? spotDetails.street : "Adresse fehlt",
+                    price: spotDetails ? spotDetails.pricePerHour : 0
+                };
+            } catch (err) {
+                // Falls ein Parkplatz mal nicht gefunden wird
+                return { ...resrv, spotName: "Parkplatz Info nicht verfügbar" };
+            }
+        }));
+
+        res.render('profil', { 
+            title: 'Mein Profil', 
+            user: req.session.user, 
+            reservations: enrichedReservations, // Jetzt mit Namen und Stadt!
+            error: null,
+            success: null
+        });
+    } catch (err) {
+        console.error("Profil-Ladefehler:", err);
+        res.render('profil', { 
+            title: 'Mein Profil', 
+            user: req.session.user, 
+            error: 'Fehler beim Laden der Parkvorgänge', 
+            reservations: [] 
+        });
+    }
+});
 // --- GET /logout ---
 router.get('/logout', (req, res) => {
     req.session.destroy(err => {
@@ -294,5 +334,47 @@ router.post('/reset-password/:token', async (req, res) => {
     }
 });
 
+// --- POST /change-password ---
+// ACHTUNG: Der Pfad hier ist nur '/change-password', 
+// weil in der app.js wahrscheinlich schon 'router.use('/users', ...)' steht.
+router.post('/change-password', isAuthenticated, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    
+    try {
+        // User anhand der E-Mail aus der Session finden
+        const user = await db.getUserByEmail(req.session.user.email); 
+
+        // Passwort-Match prüfen
+        const match = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!match) {
+            return res.render('profil', { 
+                title: 'Mein Profil', 
+                user: req.session.user, 
+                error: 'Aktuelles Passwort ist falsch.' 
+            });
+        }
+
+        // Neues Passwort hashen
+        const salt = await bcrypt.genSalt(10);
+        user.passwordHash = await bcrypt.hash(newPassword, salt);
+
+        // In DB speichern
+        await db.updateUser(user);
+
+        res.render('profil', { 
+            title: 'Mein Profil', 
+            user: req.session.user, 
+            success: 'Passwort wurde geändert!' 
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.render('profil', { 
+            title: 'Mein Profil', 
+            user: req.session.user, 
+            error: 'Fehler beim Speichern.' 
+        });
+    }
+});
 
 module.exports = router;
