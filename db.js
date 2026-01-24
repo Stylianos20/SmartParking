@@ -41,6 +41,30 @@ async function updateSpotStatus(spot) {
     }
 }
 
+// --- Berechnungen ---
+/**
+ * Berechnet die Parkdauer und den Gesamtpreis
+ * @param {string} entryTime - ISO Zeitstempel der Einfahrt
+ * @param {number} hourlyRate - Preis pro Stunde für diesen Spot
+ */
+function calculateParkingFee(entryTime, hourlyRate) {
+    const start = new Date(entryTime);
+    const end = new Date();
+    const durationMs = end - start;
+    
+    // Aufrunden auf volle Stunden
+    const durationHours = Math.ceil(durationMs / (1000 * 60 * 60));
+    const totalPrice = durationHours * hourlyRate;
+
+    return {
+        durationMs,
+        durationHours,
+        totalPrice,
+        exitTime: end.toISOString()
+    };
+}
+
+
 // --- RESERVIERUNGEN ---
 
 async function createReservation(spotId, userId) {
@@ -66,12 +90,22 @@ async function createReservation(spotId, userId) {
 
     // 3. Prüfen, ob noch freie Plätze vorhanden sind
     const availableCount = spot.availableCount ?? 0;
-    if (availableCount <= 0) { 
+    if (availableCount <= 0) {
         return { error: "Parkplatz ist derzeit belegt oder nicht verfügbar." };
     }
 
     try {
-        // 4. Erstelle neue Reservierung
+        // 4. Hole Benutzer für Kennzeichen
+        const querySpec = {
+            query: 'SELECT * FROM c WHERE c.id=@userId',
+            parameters: [{ name: '@userId', value: userId }]
+        };
+        const { resources: users } = await userContainer.items.query(querySpec).fetchAll();
+        const user = users[0];
+        
+        if (!user) return { error: "Benutzer nicht gefunden." };
+
+        // 5. Erstelle neue Reservierung
         const reservationId = crypto.randomUUID();
         const reservationDurationMs = 2 * 60 * 60 * 1000; // 2 Stunden
         const startTime = new Date().toISOString();
@@ -81,26 +115,26 @@ async function createReservation(spotId, userId) {
             id: reservationId,
             spotId: spot.id,
             userId: userId,
+            vehicleLicense: user.vehicleLicense,
             startTime,
             endTime,
             status: 'active',
             partitionKey: userId
-        // PartitionKey für Reservierung
         };
 
         await reservationContainer.items.create(newReservation, { partitionKey: newReservation.partitionKey });
 
-        // 5. Parkplatz-Status aktualisieren
+        // 6. Parkplatz-Status aktualisieren
         spot.availableCount = spot.availableCount - 1;
         spot.activeReservationId = reservationId;
 
         await updateSpotStatus(spot); // Mit ETag-Check
 
-        return { 
-            reservationId, 
-            message: "Reservierung erfolgreich.", 
-            startTime, 
-            endTime 
+        return {
+            reservationId,
+            message: "Reservierung erfolgreich.",
+            startTime,
+            endTime
         };
 
     } catch (error) {
@@ -109,11 +143,9 @@ async function createReservation(spotId, userId) {
     }
 }
 
-
-
 async function getAllReservationsForUser(userId) {
     const querySpec = {
-        query: 'SELECT * FROM Reservierungen r WHERE r.partitionKey=@userId ORDER BY r.startTime DESC',
+        query: 'SELECT * FROM c WHERE c.userId=@userId ORDER BY c.startTime DESC',
         parameters: [{ name: '@userId', value: userId }]
     };
     try {
@@ -127,39 +159,31 @@ async function getAllReservationsForUser(userId) {
 
 async function releaseReservation(reservationId, spotId, userId) {
     const reservationPartitionKey = userId;
-    const spotPartitionKey = spotId; // Annahme: PartitionKey des Parkplatzes ist die spotId
+    const spotPartitionKey = spotId;
     let updatedSpot = null;
 
-    // 1. Reservierung als abgeschlossen markieren
     try {
         const { resource: reservation } = await reservationContainer.item(reservationId, reservationPartitionKey).read();
         
-        // Prüfe, ob die Reservierung bereits abgeschlossen ist
         if (reservation.status !== 'active') {
              throw new Error("Reservierung ist nicht aktiv und kann nicht freigegeben werden.");
         }
 
         reservation.status = 'cancelled';
-        reservation.endTime = new Date().toISOString();
+        reservation.exitTime = new Date().toISOString();
         
-        // Verwende ETag, um Race-Conditions bei der Reservierung zu vermeiden
         await reservationContainer.item(reservationId, reservationPartitionKey).replace(reservation);
     } catch (error) {
         console.error("Fehler beim Freigeben der Reservierung (Schritt 1):", error.message);
         throw new Error("Aktive Reservierung nicht gefunden oder Fehler beim Abschluss: " + error.message);
     }
 
-    // 2. Parkplatz-Status aktualisieren und freigeben
     try {
-        // Holen des Spots mit dessen Partition Key
         const spot = await getSpotById(spotId, spotPartitionKey);
         
         if (spot) {
-            // WICHTIG: Parkplatz freigeben (availableCount = 1)
-            spot.availableCount = spot.availableCount + 1; 
-            
-            // WICHTIG: Referenz zur aktiven Reservierung entfernen
-            spot.activeReservationId = null; 
+            spot.availableCount = (spot.availableCount || 0) + 1;
+            spot.activeReservationId = null;
             
             updatedSpot = await updateSpotStatus(spot);
             return updatedSpot;
@@ -167,14 +191,32 @@ async function releaseReservation(reservationId, spotId, userId) {
              throw new Error(`Parkplatz mit ID ${spotId} zum Freigeben nicht gefunden.`);
         }
     } catch (error) {
-        // WICHTIG: Wenn das Spot-Update fehlschlägt, ist das Parken in der DB schief gelaufen.
-        // Die Reservierung wurde bereits auf 'completed' gesetzt. Dies ist ein inkonsistenter Zustand.
-        // Im Ernstfall müsste hier ein manueller DB-Eintrag (Monitoring) erfolgen.
         console.error("KRITISCHER FEHLER beim Freigeben des Parkplatzes (Schritt 2):", error.message);
         throw new Error(`KRITISCHER FEHLER: Parkplatz-Freigabe fehlgeschlagen: ${error.message}`);
     }
 }
 
+async function getActiveReservationByPlate(plate) {
+    const querySpec = {
+        query: "SELECT * FROM c WHERE c.vehicleLicense = @plate AND c.status = 'active' AND IS_DEFINED(c.entryTime) = false",
+        parameters: [{ name: "@plate", value: plate }]
+    };
+    const { resources } = await reservationContainer.items.query(querySpec).fetchAll();
+    return resources[0];
+}
+
+async function getStayByPlate(plate) {
+    const querySpec = {
+        query: "SELECT * FROM c WHERE c.vehicleLicense = @plate AND c.status = 'active' AND IS_DEFINED(c.entryTime) = true",
+        parameters: [{ name: "@plate", value: plate }]
+    };
+    const { resources } = await reservationContainer.items.query(querySpec).fetchAll();
+    return resources[0];
+}
+
+async function updateReservation(reservation) {
+    return await reservationContainer.item(reservation.id, reservation.partitionKey).replace(reservation);
+}
 
 // --- BENUTZER ---
 
@@ -192,10 +234,8 @@ async function registerUser(user) {
     return resource;
 }
 
-
 async function updateUser(user) {
     try {
-        // user.id ist die ID, user.email ist dein Partition Key
         const { resource } = await userContainer.item(user.id, user.email).replace(user);
         return resource;
     } catch (error) {
@@ -212,7 +252,6 @@ async function getUserByResetToken(token) {
     const { resources } = await userContainer.items.query(querySpec).fetchAll();
     return resources[0];
 }
-
 
 // --- PARKPLÄTZE ---
 
@@ -241,6 +280,9 @@ async function getSpotById(spotId, partitionKey = spotId) {
 // --- EXPORT ---
 
 module.exports = {
+    getActiveReservationByPlate,
+    getStayByPlate,
+    updateReservation,
     getUserByEmail,
     registerUser,
     getAllSpots,
@@ -250,5 +292,9 @@ module.exports = {
     releaseReservation,
     getAllReservationsForUser,
     updateUser,
-    getUserByResetToken
+    getUserByResetToken,
+    calculateParkingFee,
+    userContainer,
+    parkingContainer,
+    reservationContainer    
 };

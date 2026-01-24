@@ -33,13 +33,35 @@ router.get('/register', (req, res) => {
 // --- POST /register ---
 router.post('/register', async (req, res) => {
     const { firstName, lastName, email, password, vehicleLicense } = req.body;
+    
     if (!email || !password || !firstName || !lastName || !vehicleLicense) {
         return res.render('register', { title: 'Konto registrieren', error: 'Bitte alle Felder ausfüllen' });
     }
-    try {
-        const existingUser = await db.getUserByEmail(email);
-        if (existingUser) return res.render('register', { title: 'Konto registrieren', error: 'E-Mail bereits registriert' });
 
+    try {
+        // 1. Check, ob die E-Mail schon existiert
+        const existingUser = await db.getUserByEmail(email);
+        if (existingUser) {
+            return res.render('register', { title: 'Konto registrieren', error: 'E-Mail bereits registriert' });
+        }
+
+        // 2. NEU: Check, ob das Kennzeichen schon existiert
+        // Wir suchen in der DB nach dem Kennzeichen (in Großbuchstaben)
+        const plateUpper = vehicleLicense.toUpperCase();
+        const userQuery = {
+            query: "SELECT * FROM u WHERE u.vehicleLicense = @plate",
+            parameters: [{ name: "@plate", value: plateUpper }]
+        };
+        const { resources: usersWithPlate } = await db.userContainer.items.query(userQuery).fetchAll();
+
+        if (usersWithPlate.length > 0) {
+            return res.render('register', { 
+                title: 'Konto registrieren', 
+                error: 'Dieses Kennzeichen ist bereits mit einem anderen Konto verknüpft.' 
+            });
+        }
+
+        // 3. Wenn alles okay ist: Passwort hashen und User anlegen
         const passwordHash = await bcrypt.hash(password, 10);
         await db.registerUser({
             id: crypto.randomUUID(),
@@ -47,15 +69,23 @@ router.post('/register', async (req, res) => {
             lastName,
             email,
             passwordHash,
-            vehicleLicense,
+            vehicleLicense: plateUpper, // Wir speichern es direkt einheitlich groß
             creationDate: new Date().toISOString()
         });
 
-        // 💡 NACH DER ERFOLGREICHEN REGISTRIERUNG: Weiterleitung zur Login-Seite
-        res.render('login', { title: 'Anmelden', success: 'Registrierung erfolgreich! Bitte melden Sie sich jetzt an.', error: null });
+        // Erfolgsmeldung und Weiterleitung
+        res.render('login', { 
+            title: 'Anmelden', 
+            success: 'Registrierung erfolgreich! Bitte melden Sie sich jetzt an.', 
+            error: null 
+        });
+
     } catch (err) {
-        console.error(err);
-        res.render('register', { title: 'Konto registrieren', error: 'Serverfehler. Bitte später erneut versuchen.' });
+        console.error("Registrierungsfehler:", err);
+        res.render('register', { 
+            title: 'Konto registrieren', 
+            error: 'Serverfehler. Bitte später erneut versuchen.' 
+        });
     }
 });
 
@@ -99,36 +129,35 @@ router.post('/login', async (req, res) => {
 
 router.get('/profil', isAuthenticated, async (req, res) => {
     try {
-        // 1. Alle Reservierungen des Nutzers holen
+        // 1. Alle Reservierungen holen (Active, Completed, Cancelled)
         const allReservations = await db.getAllReservationsForUser(req.session.userId);
         
-        // 2. Nur die aktiven filtern
-        const activeOnly = allReservations.filter(r => r.status === 'active');
-
-        // 3. Jede Reservierung mit echten Daten aus der Parkplatz-Tabelle anreichern
-        const enrichedReservations = await Promise.all(activeOnly.map(async (resrv) => {
+        // 2. Wir filtern NICHT mehr im Backend. Wir reichern ALLES an.
+        const enrichedReservations = await Promise.all(allReservations.map(async (resrv) => {
             try {
-                // Wir fragen die Parkplatz-Tabelle nach der ID
                 const spotDetails = await db.getSpotById(resrv.spotId);
                 
                 return {
                     ...resrv,
-                    // Hier kommen die menschlichen Infos rein:
+                    // Wenn der Status fehlt, Standard auf 'active'
+                    status: resrv.status || 'active', 
                     spotName: spotDetails ? spotDetails.name : "Unbekannter Ort",
                     stadt: spotDetails ? spotDetails.stadt : "Stadt unbekannt",
                     street: spotDetails ? spotDetails.street : "Adresse fehlt",
                     price: spotDetails ? spotDetails.pricePerHour : 0
                 };
             } catch (err) {
-                // Falls ein Parkplatz mal nicht gefunden wird
-                return { ...resrv, spotName: "Parkplatz Info nicht verfügbar" };
+                return { ...resrv, status: resrv.status || 'active', spotName: "Info nicht verfügbar" };
             }
         }));
+
+        // DEBUG LOG: Prüfe dein Terminal!
+        console.log(`DEBUG: Schicke ${enrichedReservations.length} Einträge an das Profil.`);
 
         res.render('profil', { 
             title: 'Mein Profil', 
             user: req.session.user, 
-            reservations: enrichedReservations, // Jetzt mit Namen und Stadt!
+            reservations: enrichedReservations, // Jetzt sind alle dabei!
             error: null,
             success: null
         });

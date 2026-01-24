@@ -1,4 +1,3 @@
-
 function displayStatus(message, isSuccess = true) {
     const statusArea = document.getElementById('status-message');
     const titleElement = document.getElementById('status-title');
@@ -201,9 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderReservations(reservations);
 });
 
-// ----------------------------------------------------------------------
-// RESERVIERUNGSFUNKTIONEN
-// ----------------------------------------------------------------------
+
 
 
 export { displayStatus, formatTime, renderReservations, executeRelease ,parseServerReservations ,createReservationItem ,displayMessage ,addReleaseButtonListeners };

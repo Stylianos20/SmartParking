@@ -421,9 +421,8 @@ function updateListWithFilter(filteredSpots) {
         button.addEventListener('click', e => showSpotDetails(e.currentTarget.dataset.spotId));
     });
 }
-
-
 window.setParkingFilters = setParkingFilters;
+
 
 
 // =======================================================
