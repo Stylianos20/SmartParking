@@ -165,7 +165,7 @@ router.post('/api/gate-entry', async (req, res) => {
         let reservation = reservations[0];
 
         // 3. Zeitstempel setzen und speichern
-        reservation.entryTime = new Date().toISOString();
+        reservation.entryTime = new Date().toLocaleString();
         
         // Nutze die update-Funktion aus deiner db.js
         await db.updateReservation(reservation);
@@ -217,7 +217,7 @@ router.post('/api/gate-exit', async (req, res) => {
 
         // 4. Reservierung abschließen
         stay.status = 'completed';
-        stay.exitTime = exitTime.toISOString();
+        stay.exitTime = exitTime.toLocaleString();
         stay.totalPrice = totalPrice;
         await db.updateReservation(stay);
 
