@@ -165,8 +165,7 @@ router.post('/api/gate-entry', async (req, res) => {
         let reservation = reservations[0];
 
         // 3. Zeitstempel setzen und speichern
-        reservation.entryTime = new Date().toLocaleString();
-        
+        reservation.entryTime = new Date().toISOString();        
         // Nutze die update-Funktion aus deiner db.js
         await db.updateReservation(reservation);
 
@@ -217,7 +216,7 @@ router.post('/api/gate-exit', async (req, res) => {
 
         // 4. Reservierung abschließen
         stay.status = 'completed';
-        stay.exitTime = exitTime.toLocaleString();
+        stay.exitTime = exitTime.toISOString();
         stay.totalPrice = totalPrice;
         await db.updateReservation(stay);
 
@@ -331,12 +330,19 @@ router.get('/invoice/:id', async (req, res) => {
         doc.moveDown();
 
         // Zeitberechnung
-        const entry = data.entryTime ? new Date(data.entryTime) : new Date(data.startTime);
-        const exit = data.exitTime ? new Date(data.exitTime) : new Date();
+        // Zeitumwandlung in Berliner Zeit für die Anzeige
+const entry = data.entryTime ? new Date(data.entryTime) : new Date(data.startTime);
+const exit = data.exitTime ? new Date(data.exitTime) : new Date();
 
-        doc.fontSize(12).fillColor('#000000');
-        doc.text(`Einfahrt: ${entry.toLocaleString('de-DE')}`);
-        doc.text(`Ausfahrt: ${exit.toLocaleString('de-DE')}`);
+const options = { 
+    timeZone: 'Europe/Berlin', 
+    day: '2-digit', month: '2-digit', year: 'numeric', 
+    hour: '2-digit', minute: '2-digit' 
+};
+
+doc.fontSize(12).fillColor('#000000');
+doc.text(`Einfahrt: ${entry.toLocaleString('de-DE', options)} Uhr`);
+doc.text(`Ausfahrt: ${exit.toLocaleString('de-DE', options)} Uhr`);
         
         doc.moveDown();
         const total = data.totalPrice || 0;
