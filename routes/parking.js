@@ -282,78 +282,106 @@ const PDFDocument = require('pdfkit');
 
 router.get('/invoice/:id', async (req, res) => {
     try {
-        // Prüfe, ob der User in req.user oder req.session.user steckt
         const user = req.user || req.session.user;
+        if (!user || !user.id) return res.status(401).send('Nicht autorisiert.');
 
-        if (!user || !user.id) {
-            console.error("LOG: Kein User in der Session gefunden!");
-            return res.status(401).send('Nicht autorisiert. Bitte neu einloggen.');
+        // 1. Reservierung aus dem Container laden
+        const { resource: data } = await reservationContainer.item(req.params.id, user.id).read();
+        if (!data || data.status !== 'completed') {
+            return res.status(404).send('Rechnung noch nicht verfügbar.');
         }
 
-        const reservationId = req.params.id;
-        const userId = user.id;
+        // 2. Parkplatz-Details (Station) laden, um Adresse und Stundensatz zu erhalten
+        const spot = await db.getSpotById(data.spotId); 
+        
+        // Mapping deiner JSON-Tupel (stadt, zip, houseNumber, pricePerHour)
+        const stationName = spot ? spot.name : "Smart Parking Station";
+        const stationAddress = spot 
+            ? `${spot.street} ${spot.houseNumber}, ${spot.zip} ${spot.stadt}` 
+            : "Burgfeldstraße 19, 61169 Friedberg";
+        const hourlyRate = (spot && spot.pricePerHour) ? spot.pricePerHour : 2.00;
 
-        console.log(`LOG: Suche Reservierung ${reservationId} für User ${userId}`);
-
-        // Abruf mit dem importierten reservationContainer
-        const { resource: data } = await reservationContainer.item(reservationId, userId).read();
-
-        if (!data) {
-            console.error("LOG: Dokument in Cosmos DB nicht gefunden (ID oder PartitionKey falsch).");
-            return res.status(404).send('Rechnung nicht gefunden.');
-        }
-
-        // Falls du testen willst, bevor das Auto offiziell ausgecheckt hat, 
-        // kommentiere die nächste Zeile kurz aus:
-        if (data.status !== 'completed') {
-            return res.status(400).send('Rechnung erst nach Ausfahrt verfügbar (Status ist noch: ' + data.status + ')');
-        }
-
-        // PDF Generierung
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=Rechnung-${data.id.substring(0,8)}.pdf`);
 
         const doc = new PDFDocument({ size: 'A4', margin: 50 });
         doc.pipe(res);
 
-        // Design
-        doc.fillColor('#238636').fontSize(25).text('SMART PARKING', 50, 50);
-        doc.fillColor('#000000').fontSize(12).text('Rechnung', 50, 85);
+        // --- HEADER ---
+        try { 
+            doc.image('public/images/favicon.png', 50, 40, { width: 45 }); 
+        } catch (e) {
+            console.log("Logo nicht gefunden");
+        }
         
-        doc.moveDown(2);
-        doc.fontSize(10).text(`Rechnungs-ID: ${data.id}`);
-        doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`);
-        doc.text(`Fahrzeug-Kennzeichen: ${data.vehicleLicense || 'Unbekannt'}`);
-
-        doc.moveDown();
-        doc.rect(50, doc.y, 500, 1).fill('#cccccc');
-        doc.moveDown();
-
-        // Zeitberechnung
-        // Zeitumwandlung in Berliner Zeit für die Anzeige
-const entry = data.entryTime ? new Date(data.entryTime) : new Date(data.startTime);
-const exit = data.exitTime ? new Date(data.exitTime) : new Date();
-
-const options = { 
-    timeZone: 'Europe/Berlin', 
-    day: '2-digit', month: '2-digit', year: 'numeric', 
-    hour: '2-digit', minute: '2-digit' 
-};
-
-doc.fontSize(12).fillColor('#000000');
-doc.text(`Einfahrt: ${entry.toLocaleString('de-DE', options)} Uhr`);
-doc.text(`Ausfahrt: ${exit.toLocaleString('de-DE', options)} Uhr`);
+        doc.fillColor('#00abfa').fontSize(20).text('SMART PARKING GMBH', 110, 57);
+        doc.fontSize(10).fillColor('#7a7a7a').text(`${stationName}`, 110, 80);
         
+        doc.fontSize(22).fillColor('#000000').text('RECHNUNG', 50, 140, { align: 'right' });
+
+        // --- INFO BLOCK ---
         doc.moveDown();
+        doc.fillColor('#000000').fontSize(10).text(`Rechnungs-Nr: INV-${data.id.substring(0,8).toUpperCase()}`, { align: 'right' });
+        doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, { align: 'right' });
+
+        doc.text('Empfänger:', 50, 200);
+        doc.fontSize(12).fillColor('#333333').text(`${user.firstName || 'Kunde'} ${user.lastName || ''}`, 50, 215);
+        doc.fontSize(10).text(`Kennzeichen: ${data.vehicleLicense}`, 50, 230);
+        doc.text(`Parkplatz: ${data.spotId}`, 50, 245);
+
+        // --- TABELLE KOPF ---
+        const tableTop = 300;
+        doc.rect(50, tableTop, 500, 20).fill('#f0f0f0');
+        doc.fillColor('#000000').fontSize(10).text('Beschreibung', 60, tableTop + 7);
+        doc.text('Dauer', 280, tableTop + 7);
+        doc.text('Satz', 370, tableTop + 7);
+        doc.text('Gesamt', 470, tableTop + 7);
+
+        // --- TABELLE INHALT ---
+        const optionsTime = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' };
+        const entryT = new Date(data.entryTime).toLocaleTimeString('de-DE', optionsTime);
+        const exitT = new Date(data.exitTime).toLocaleTimeString('de-DE', optionsTime);
+        const dateStr = new Date(data.entryTime).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+        
+        const rowTop = tableTop + 35;
+        doc.fontSize(9).fillColor('#333333');
+        
+        // Linke Spalte: Details
+        doc.text(`Parken am ${dateStr}`, 60, rowTop);
+        doc.fillColor('#7a7a7a').text(`${entryT} Uhr bis ${exitT} Uhr`, 60, rowTop + 12);
+        doc.fontSize(8).text(stationAddress, 60, rowTop + 24);
+        
+        // Werte Spalten
+        const diffMin = Math.ceil((new Date(data.exitTime) - new Date(data.entryTime)) / 60000);
+        doc.fontSize(10).fillColor('#333333').text(`${diffMin} Min.`, 280, rowTop);
+        doc.text(`${hourlyRate.toFixed(2)} €/h`, 370, rowTop);
+        
         const total = data.totalPrice || 0;
-        doc.fontSize(16).fillColor('#238636').text(`Gesamtbetrag: ${total.toFixed(2)} €`, { align: 'right' });
+        doc.fontSize(11).text(`${total.toFixed(2)} €`, 470, rowTop, { bold: true });
+
+        // --- SUMMEN-BLOCK ---
+        const netto = total / 1.19;
+        const mwst = total - netto;
+        const summaryTop = rowTop + 80;
+
+        doc.fontSize(10).fillColor('#000000');
+        doc.text('Netto:', 350, summaryTop);
+        doc.text(`${netto.toFixed(2)} €`, 470, summaryTop, { align: 'right' });
+        doc.text('MwSt. (19%):', 350, summaryTop + 15);
+        doc.text(`${mwst.toFixed(2)} €`, 470, summaryTop + 15, { align: 'right' });
+
+        // Highlights-Box für Gesamtbetrag
+        doc.rect(340, summaryTop + 35, 210, 30).fill('#238636');
+        doc.fillColor('#ffffff').fontSize(12).text('GESAMTBETRAG:', 350, summaryTop + 45);
+        doc.fontSize(14).text(`${total.toFixed(2)} €`, 470, summaryTop + 43, { align: 'right', bold: true });
+
+        // --- FOOTER ---
+        doc.fillColor('#999999').fontSize(8).text(`Smart Parking GmbH | ${stationAddress}`, 50, 750, { align: 'center' });
 
         doc.end();
-
     } catch (error) {
         console.error('LOG PDF FEHLER:', error);
-        res.status(500).send('Interner Fehler: ' + error.message);
+        res.status(500).send('Fehler bei der PDF-Erstellung: ' + error.message);
     }
 });
-
 module.exports = router;
