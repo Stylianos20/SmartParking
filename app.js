@@ -11,7 +11,6 @@ const indexRouter = require('./routes/index');
 const usersRouter = require('./routes/users');
 const parkingRouter = require('./routes/parking');
 const reservationRouter = require('./routes/reservation'); 
-const malsehenRouter = require('./routes/malsehen');
 
 const app = express();
 
@@ -58,7 +57,6 @@ app.use('/parking/api', reservationRouter);
 // 3. Reservation Router für die Historien-Ansicht (GET /reservations/history)
 app.use('/reservations', reservationRouter); 
 
-app.use('/malsehen', malsehenRouter);
 
 
 // --- 404 Handler ---
