@@ -243,21 +243,23 @@ router.get('/invoice/:id', async (req, res) => {
         const user = req.user || req.session.user;
         if (!user || !user.id) return res.status(401).send('Nicht autorisiert.');
 
-        // 1. Reservierung aus dem Container laden
+        // 1. Reservierung laden
         const { resource: data } = await reservationContainer.item(req.params.id, user.id).read();
         if (!data || data.status !== 'completed') {
             return res.status(404).send('Rechnung noch nicht verfügbar.');
         }
 
-        // 2. Parkplatz-Details (Station) laden, um Adresse und Stundensatz zu erhalten
+        // 2. Parkplatz-Details laden
         const spot = await db.getSpotById(data.spotId); 
-        
-        // Mapping deiner JSON-Tupel (stadt, zip, houseNumber, pricePerHour)
         const stationName = spot ? spot.name : "Smart Parking Station";
         const stationAddress = spot 
             ? `${spot.street} ${spot.houseNumber}, ${spot.zip} ${spot.stadt}` 
             : "Burgfeldstraße 19, 61169 Friedberg";
         const hourlyRate = (spot && spot.pricePerHour) ? spot.pricePerHour : 2.00;
+
+        // --- WICHTIG: DATUMS-OBJEKTE DEFINIEREN ---
+        const entryDate = new Date(data.entryTime);
+        const exitDate = new Date(data.exitTime);
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=Rechnung-${data.id.substring(0,8)}.pdf`);
@@ -266,15 +268,9 @@ router.get('/invoice/:id', async (req, res) => {
         doc.pipe(res);
 
         // --- HEADER ---
-        try { 
-            doc.image('public/images/favicon.png', 50, 40, { width: 45 }); 
-        } catch (e) {
-            console.log("Logo nicht gefunden");
-        }
-        
+        try { doc.image('public/images/favicon.png', 50, 40, { width: 45 }); } catch (e) {}
         doc.fillColor('#00abfa').fontSize(20).text('SMART PARKING GMBH', 110, 57);
         doc.fontSize(10).fillColor('#7a7a7a').text(`${stationName}`, 110, 80);
-        
         doc.fontSize(22).fillColor('#000000').text('RECHNUNG', 50, 140, { align: 'right' });
 
         // --- INFO BLOCK ---
@@ -297,23 +293,25 @@ router.get('/invoice/:id', async (req, res) => {
 
         // --- TABELLE INHALT ---
         const optionsTime = { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' };
-        const entryT = new Date(data.entryTime).toLocaleTimeString('de-DE', optionsTime);
-        const exitT = new Date(data.exitTime).toLocaleTimeString('de-DE', optionsTime);
-        const dateStr = new Date(data.entryTime).toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
+        const entryT = entryDate.toLocaleTimeString('de-DE', optionsTime);
+        const exitT = exitDate.toLocaleTimeString('de-DE', optionsTime);
+        const dateStr = entryDate.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin' });
         
         const rowTop = tableTop + 35;
         doc.fontSize(9).fillColor('#333333');
-        
-        // Linke Spalte: Details
         doc.text(`Parken am ${dateStr}`, 60, rowTop);
         doc.fillColor('#7a7a7a').text(`${entryT} Uhr bis ${exitT} Uhr`, 60, rowTop + 12);
         doc.fontSize(8).text(stationAddress, 60, rowTop + 24);
         
-        // Werte Spalten
-        const diffMin = Math.ceil((new Date(data.exitTime) - new Date(data.entryTime)) / 60000);
-        doc.fontSize(10).fillColor('#333333').text(`${diffMin} Min.`, 280, rowTop);
+        // --- UMRECHNUNG MINUTEN IN STUNDEN (Jetzt mit definierten Variablen) ---
+        const totalDiffMinutes = Math.ceil((exitDate - entryDate) / 60000);
+        const hours = Math.floor(totalDiffMinutes / 60);
+        const mins = totalDiffMinutes % 60;
+        const durationStr = hours > 0 ? `${hours} Std. ${mins} Min.` : `${mins} Min.`;
+
+        doc.fontSize(10).fillColor('#333333').text(durationStr, 280, rowTop);
         doc.text(`${hourlyRate.toFixed(2)} €/h`, 370, rowTop);
-        
+
         const total = data.totalPrice || 0;
         doc.fontSize(11).text(`${total.toFixed(2)} €`, 470, rowTop, { bold: true });
 
@@ -328,18 +326,16 @@ router.get('/invoice/:id', async (req, res) => {
         doc.text('MwSt. (19%):', 350, summaryTop + 15);
         doc.text(`${mwst.toFixed(2)} €`, 470, summaryTop + 15, { align: 'right' });
 
-        // Highlights-Box für Gesamtbetrag
         doc.rect(340, summaryTop + 35, 210, 30).fill('#238636');
         doc.fillColor('#ffffff').fontSize(12).text('GESAMTBETRAG:', 350, summaryTop + 45);
         doc.fontSize(14).text(`${total.toFixed(2)} €`, 470, summaryTop + 43, { align: 'right', bold: true });
 
-        // --- FOOTER ---
         doc.fillColor('#999999').fontSize(8).text(`Smart Parking GmbH | ${stationAddress}`, 50, 750, { align: 'center' });
 
         doc.end();
     } catch (error) {
         console.error('LOG PDF FEHLER:', error);
-        res.status(500).send('Fehler bei der PDF-Erstellung: ' + error.message);
+        res.status(500).send('Fehler bei der PDF-Erstellung.');
     }
 });
 module.exports = router;
