@@ -1,9 +1,28 @@
 // nav-Funktion für die Tabs
 function nav(event, target) {
-    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    // 1. Alle Tabs und Buttons säubern
+    document.querySelectorAll('.tab-pane').forEach(p => {
+        p.classList.remove('active');
+        p.style.display = 'none'; // Alles verstecken
+    });
     document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('section-' + target).classList.add('active');
-    event.currentTarget.classList.add('active');
+
+    // 2. Ziel-Tab aktivieren
+    const section = document.getElementById('section-' + target);
+    if (section) {
+        section.classList.add('active');
+        section.style.display = 'block'; // Ziel anzeigen
+    }
+
+    // 3. Button-Styling (nur wenn event vorhanden oder manuell gesucht)
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    } else {
+        // Falls kein Klick-Event da ist (Automatik), suchen wir den passenden Button
+        const btn = Array.from(document.querySelectorAll('.menu-btn'))
+                         .find(b => b.getAttribute('onclick')?.includes(target));
+        if (btn) btn.classList.add('active');
+    }
 }
 
 // Live-Uhrzeit
@@ -157,8 +176,43 @@ window.handleGate = handleGate;
 window.fetchMySpots = fetchMySpots;
 window.openReleaseModal = openReleaseModal;
 
-// Initialisierung beim Laden
+// Hilfsfunktion: Prüft den URL-Anker (#) und schaltet den Tab um
+function checkHashAndSwitchTab() {
+    const currentHash = window.location.hash.toLowerCase();
+    
+    // Prüft auf #reserve oder #reservations (passend zu deiner ID section-reserve)
+    if (currentHash === '#reservations' || currentHash === '#reserve') {
+        console.log("Hash-Wechsel erkannt: Schalte auf Reservierungen um.");
+        
+        // Wir nutzen deine nav-Funktion. 
+        // Wir suchen den Button in der Sidebar, der 'reserve' im onclick hat.
+        const resBtn = Array.from(document.querySelectorAll('.menu-btn'))
+                            .find(btn => btn.getAttribute('onclick')?.includes('reserve'));
+        
+        // Tab umschalten
+        nav({ currentTarget: resBtn }, 'reserve');
+        
+        // Filter auf 'Aktiv' setzen
+        if (typeof filterReservations === 'function') {
+            filterReservations('active');
+        }
+    }
+}
+
+// EVENT LISTENER 1: Beim ersten Laden der Seite
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("SmartParking Profile JS geladen und bereit.");
-    filterReservations('active'); // Standardfilter setzen
+    console.log("Seite geladen. Prüfe initialen Hash...");
+    checkHashAndSwitchTab();
+    
+    // Dein Standard-Filter (falls kein Hash vorhanden ist)
+    if (!window.location.hash) {
+        filterReservations('active');
+    }
+});
+
+// EVENT LISTENER 2: Wenn sich der Hash ändert, während man auf der Seite bleibt
+// Das löst dein Problem beim erneuten Klicken auf den Nav-Link oben!
+window.addEventListener('hashchange', () => {
+    console.log("URL-Hash hat sich geändert.");
+    checkHashAndSwitchTab();
 });

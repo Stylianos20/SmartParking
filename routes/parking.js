@@ -77,48 +77,6 @@ router.get('/api/spots', async (req, res) => {
 });
 
 
-// GET /nearest - Nächste Parkplätze inkl. Routing (Voller Pfad: /parking/nearest)
-router.get('/nearest', async (req, res) => {
-    const { startLat, startLon } = req.query;
-    if (!startLat || !startLon) {
-        return res.status(400).json({ error: "Bitte Startkoordinaten (startLat, startLon) angeben." });
-    }
-
-    try {
-        const spots = await getParkingSpotsFromOverpass();
-        if (spots.length === 0) {
-            return res.status(404).json({ message: "Keine Parkplätze in diesem Gebiet gefunden." });
-        }
-
-        const routingPromises = spots.map(async spot => {
-            try {
-                const info = await getRouteDistance(startLon, startLat, spot.lon, spot.lat);
-                return {
-                    ...spot,
-                    distanceMeters: info.distance,
-                    durationSeconds: info.duration,
-                    distanceKm: (info.distance / 1000).toFixed(1) + " km"
-                };
-            } catch (error) {
-                console.warn(`Routing-Fehler für ${spot.name}: ${error.message}`);
-                return { ...spot, error: "Routing fehlgeschlagen" };
-            }
-        });
-
-        const spotsWithRoutes = await Promise.all(routingPromises);
-        const sorted = spotsWithRoutes.filter(s => !s.error)
-                                     .sort((a,b) => a.distanceMeters - b.distanceMeters)
-                                     .slice(0,5);
-
-        res.json({ startLocation: { lat: startLat, lon: startLon }, nearestParkingSpots: sorted });
-
-    } catch (error) {
-        console.error("Kombinierter API-Fehler:", error);
-        res.status(500).json({ message: "Interner Serverfehler." });
-    }
-});
-
-
 // -------------------------------------------------------------
 // ANSICHTS-ENDPUNKTE
 // -------------------------------------------------------------
