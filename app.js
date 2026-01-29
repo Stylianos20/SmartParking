@@ -47,14 +47,8 @@ app.use((req, res, next) => {
 // --- Routes ---
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
-
-// 1. Parking Router für Hauptseite und allgemeine APIs
 app.use('/parking', parkingRouter); 
-
-// 2. Reservation Router für API-Aktionen (POST /api/reserve, POST /api/release)
 app.use('/parking/api', reservationRouter); 
-
-// 3. Reservation Router für die Historien-Ansicht (GET /reservations/history)
 app.use('/reservations', reservationRouter); 
 
 

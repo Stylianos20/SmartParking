@@ -4,62 +4,6 @@ const fetch = require('node-fetch'); // Für Overpass/OSRM
 const db = require('../db'); // Zugriff auf die DB
 const { reservationContainer } = require('../db'); // Pfad eventuell anpassen (z.B. ../models/db)
 
-// -------------------------------------------------------------
-// HELPER FUNKTIONEN (Overpass und OSRM)
-// -------------------------------------------------------------
-
-/**
- * Ruft Parkplätze über die Overpass API ab (Beispielgebiet Frankfurt).
- */
-async function getParkingSpotsFromOverpass() {
-    const overpassQuery = `
-        [out:json][timeout:25];
-        (
-            node["amenity"="parking"](50.1,8.6,50.15,8.7);
-            way["amenity"="parking"](50.1,8.6,50.15,8.7);
-        );
-        out center;
-    `;
-
-    try {
-        const response = await fetch("https://overpass-api.de/api/interpreter", {
-            method: "POST",
-            body: overpassQuery
-        });
-        const data = await response.json();
-        return data.elements.map(el => ({
-            type: el.type,
-            name: el.tags ? el.tags.name : "Unbekannter Parkplatz",
-            lat: el.lat || (el.center ? el.center.lat : null),
-            lon: el.lon || (el.center ? el.center.lon : null)
-        }));
-    } catch (error) {
-        console.error("Overpass API Fehler:", error.message);
-        return [];
-    }
-}
-
-/**
- * Berechnet Fahrstrecke und Dauer über OSRM.
- */
-async function getRouteDistance(startLon, startLat, endLon, endLat) {
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=false`;
-    try {
-        const response = await fetch(osrmUrl);
-        const data = await response.json();
-        if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-            throw new Error(`OSRM Fehler: ${data.message || "Keine Route gefunden"}`);
-        }
-        return {
-            distance: data.routes[0].distance,
-            duration: data.routes[0].duration
-        };
-    } catch (error) {
-        console.error("OSRM API Fehler:", error.message);
-        throw new Error("Fehler bei der Streckenberechnung.");
-    }
-}
-
 
 // -------------------------------------------------------------
 // API ENDPUNKTE (Allgemein)
