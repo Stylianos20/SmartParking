@@ -9,7 +9,7 @@ const { reservationContainer } = require('../db'); // Pfad eventuell anpassen (z
 // API ENDPUNKTE (Allgemein)
 // -------------------------------------------------------------
 
-// GET /api/spots - Alle Parkplätze aus DB (Voller Pfad: /parking/api/spots)
+// GET /api/spots - Alle Parkplätze aus DB (Voller Pfad: /parking/api/spots) x
 router.get('/api/spots', async (req, res) => {
     try {
         const spots = await db.getAllSpots();
