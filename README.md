@@ -1,104 +1,58 @@
-🅿️ SmartParking App
-Eine moderne, Full-Stack Web-Anwendung zur effizienten Verwaltung, Suche und Reservierung von Parkplätzen in Echtzeit. Schluss mit der ewigen Parkplatzsuche – finden, klicken, parken!
+# 🅿️ SmartParking – Stressfrei parken in der City
+> Eine moderne Full-Stack Lösung zur Echtzeit-Parkplatzverwaltung und Reservierung.
 
-🌟 Features
-Interaktive Kartenansicht: Visualisierung aller Parkplatz-Standorte via Leaflet.js und OpenStreetMap.
+[![Node.js](https://img.shields.io/badge/Backend-Node.js-green.svg)](https://nodejs.org/)
+[![Database](https://img.shields.io/badge/Database-Azure%20Cosmos%20DB-blue.svg)](https://azure.microsoft.com/en-us/services/cosmos-db/)
+[![Tailwind](https://img.shields.io/badge/Design-Tailwind%20CSS-38B2AC.svg)](https://tailwindcss.com/)
 
-Echtzeit-Verfügbarkeit: Dynamische Anzeige von freien Plätzen direkt aus der Datenbank.
+SmartParking ist eine interaktive Web-Anwendung, die Autofahrern dabei hilft, freie Parkplätze in Echtzeit zu finden und sofort zu reservieren. Entwickelt mit Fokus auf Performance, Skalierbarkeit und eine intuitive User Experience.
 
-Detaillierte Listenansicht: Schicke Parkplatz-Karten mit Bildern, Beschreibungen und Preisen.
+---
 
-Reservierungssystem: Registrierte Nutzer können Parkplätze mit nur einem Klick sofort reservieren.
+## 📸 Einblick in die App
+*(Tipp: Hier ein Screenshot oder ein kurzes GIF deiner App einfügen!)*
 
-Responsive Design: Optimiert für Desktop und mobile Endgeräte dank Tailwind CSS.
+---
 
-Sicheres Backend: Robuste Architektur mit Node.js und Express.
+## 🚀 Kern-Features
+* **Live-Karte:** Interaktive Übersicht aller Standorte via **Leaflet.js** und OpenStreetMap.
+* **Echtzeit-Status:** Dynamische Berechnung der verfügbaren Plätze direkt aus der **Azure Cosmos DB**.
+* **Smart Cards:** Detaillierte Listenansicht mit Bildern, Preisangaben und Kurzbeschreibungen.
+* **One-Click Reservation:** Angemeldete Nutzer können ihren Parkplatz mit einem Klick sichern.
+* **Responsive Design:** Dank **Tailwind CSS** auf dem Smartphone genauso flüssig wie auf dem Desktop.
 
-🛠 Tech Stack
-Frontend:
+---
 
-EJS: Embedded JavaScript Templates für dynamisches HTML.
+## 🛠️ Der Tech-Stack
+### Frontend
+- **EJS (Embedded JavaScript):** Für dynamisches Templating.
+- **Tailwind CSS:** Utility-first CSS für ein modernes UI.
+- **Leaflet.js:** Integration interaktiver Karten.
 
-Tailwind CSS: Modernes Utility-First CSS-Framework für das Styling.
+### Backend
+- **Node.js & Express:** Robuste Server-Architektur.
+- **Azure Cosmos DB:** Hochverfügbare NoSQL-Datenbank für Parkplatz- und Userdaten.
+- **Express-Session:** Sicheres Handling von Nutzersitzungen.
 
-Leaflet.js: Interaktive Karten-Integration.
+---
 
-Backend:
+## 🧠 Herausforderungen & Lösungen (Dev-Log)
+Dieses Projekt war mehr als nur "Standard-Code". Hier sind zwei technische Hürden, die ich gemeistert habe:
 
-Node.js & Express: Server-Umgebung und Routing.
+1. **Tailwind JIT & Dynamisches HTML:**
+   Da die Parkplatz-Karten dynamisch über JavaScript-Strings generiert werden, erkannte der Tailwind-Compiler die CSS-Klassen anfangs nicht (über 30 Layout-Fehler).
+   *Lösung:* Anpassung der `tailwind.config.js` (`content`-Pfad), um auch JS-Dateien im `public`-Ordner zu scannen.
+   
+2. **Asynchrone Datenverarbeitung:**
+   Die parallele Darstellung von Karten-Markern und der Listenansicht erforderte ein sauberes State-Management im Frontend, um Ladezeiten unter 200ms zu halten.
 
-Azure Cosmos DB: Hochskalierbare NoSQL-Datenbank für Parkplatz- und Nutzerdaten.
+---
 
-Express-Session: Handhabung von Benutzer-Logins.
+## ⚙️ Installation & Setup
 
-🚀 Installation & Setup
-Befolgen Sie diese Schritte, um das Projekt lokal auszuführen:
+1. **Repository klonen:**
+   ```bash
+   git clone [https://github.com/DEIN_PROFIL/smart-parking.git](https://github.com/DEIN_PROFIL/smart-parking.git)
+   cd smart-parking
 
-1. Repository klonen
-Bash
-git clone https://github.com/DEIN-BENUTZERNAME/smart-parking-app.git
-cd smart-parking-app
-2. Abhängigkeiten installieren
-Bash
-npm install
-3. Umgebungsvariablen konfigurieren
-Erstelle eine .env Datei im Hauptverzeichnis und füge deine Azure Cosmos DB Zugangsdaten hinzu:
 
-Code-Snippet
-PORT=3000
-COSMOS_ENDPOINT=https://dein-account.documents.azure.com:443/
-COSMOS_KEY=dein-geheimer-key==
-COSMOS_DATABASE=smartparking
-COSMOS_CONTAINER_PARKING=Parkplatz
-COSMOS_CONTAINER_USERS=Users
-SESSION_SECRET=ein-sehr-sicheres-geheimnis
-4. App starten
-Bash
-# Für die Entwicklung (mit automatischem Neustart)
-npm run dev
-
-# Normaler Start
-npm start
-Die App ist nun unter http://localhost:3000 erreichbar.
-
-📊 Datenbank-Struktur (Cosmos DB)
-Ein typisches Parkplatz-Dokument sieht wie folgt aus:
-
-JSON
-{
-    "id": "spot_01",
-    "name": "City Tower Tiefgarage",
-    "location": "Berliner Straße 74, Offenbach",
-    "lat": 50.106,
-    "lon": 8.763,
-    "totalCount": 150,
-    "availableCount": 42,
-    "pricePerHour": 2.50,
-    "isAvailable": true,
-    "imageUrl": "/images/parking1.jpg",
-    "shortDescription": "Zentrale Tiefgarage mit Videoüberwachung und E-Ladestationen."
-}
-🛣 Roadmap / Kommende Features
-[ ] Integration von OSRM für echtes Routing zum Parkplatz.
-
-[ ] Filter-Optionen (Preis, Entfernung, E-Ladestation).
-
-[ ] Bezahlfunktion via Stripe API.
-
-[ ] Dark Mode Unterstützung.
-
-🤝 Mitwirken
-Beiträge sind herzlich willkommen!
-
-Forke das Projekt.
-
-Erstelle deinen Feature-Branch (git checkout -b feature/NeuesFeature).
-
-Committe deine Änderungen (git commit -m 'Add some NeuesFeature').
-
-Pushe den Branch (git push origin feature/NeuesFeature).
-
-Öffne einen Pull Request.
-
-📄 Lizenz
-Verteilt unter der MIT-Lizenz. Siehe LICENSE für weitere Informationen.
