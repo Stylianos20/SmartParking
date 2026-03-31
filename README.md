@@ -1,5 +1,11 @@
 # 🅿️ SmartParking – Stressfrei parken in der City
 > Eine moderne Full-Stack Lösung zur Echtzeit-Parkplatzverwaltung und Reservierung.
+><div align="center">
+  <p>
+    <a href="https://smartparking-hvafdxhgdpgjhdda.westeurope-01.azurewebsites.net/" target="_blank">
+      <img src="https://img.shields.io/badge/Live_Demo-Besuchen-orange?style=for-the-badge&logo=azure-pipelines&logoColor=white" alt="Live Demo">
+    </a>
+</div>
 
 [![Node.js](https://img.shields.io/badge/Backend-Node.js-green.svg)](https://nodejs.org/)
 [![Database](https://img.shields.io/badge/Database-Azure%20Cosmos%20DB-blue.svg)](https://azure.microsoft.com/en-us/services/cosmos-db/)
@@ -55,4 +61,65 @@ Dieses Projekt war mehr als nur "Standard-Code". Hier sind zwei technische Hürd
    git clone [https://github.com/DEIN_PROFIL/smart-parking.git](https://github.com/DEIN_PROFIL/smart-parking.git)
    cd smart-parking
 
+
+---   
+# 🅿️ SmartParking – Bildervorschau wenn die Webseite nicht klappt
+> Die intelligente Full-Stack Lösung zur Echtzeit-Parkplatzsuche, Reservierung und Abrechnung.
+
+![App Vorschau](img/Startseite.png)
+![App Vorschau](img/Startseite2.png)
+
+---
+
+## 🌟 Kern-Features & Einblick
+
+Hier bekommen Sie einen detaillierten Einblick in die Funktionen der SmartParking App, von der Registrierung bis zur abgeschlossenen Rechnung.
+
+### 1. User Onboarding & Kontobereich
+Ein reibungsloser Start und eine klare Übersicht über Ihre persönlichen Daten.
+
+| Registrierung | Login | Mein Kontobereich |
+| :---: | :---: | :---: |
+| ![Registrierung](img/Registrierung.png) | ![Login](img/Login.png) | ![Konto Bereich](img/Kontobereich.png) |
+
+---
+
+### 2. Parkplatzsuche & Reservierung
+Finden Sie den perfekten Spot in Echtzeit und sichern Sie ihn sich sofort.
+
+**Die Standort-Übersicht:**
+Wählen Sie Ihren bevorzugten Parkplatz direkt von der Karte oder der Liste.
+![Startseite / Übersicht](img/Startseite.png)
+
+**Details & Buchung:**
+Detaillierte Infos zu freien Plätzen, Preisen und Reservierungsoptionen.
+![Parkplatz Details](img/Parkplatz_Details.png)
+
+---
+
+### 3. Historie & Abrechnung
+Volle Transparenz über Ihre vergangenen Parkvorgänge und Rechnungen.
+
+**Mein Parkverlauf:**
+Übersicht über alle abgeschlossenen und aktiven Reservierungen.
+![Park Historie](img/Park_Historie_Reservierungen.png)
+
+**Rechnungsansicht:**
+Detaillierte Rechnung zu jeder abgeschlossenen Reservierung.
+![Rechnung](img/Rechnung_zur_Reservierung.png)
+
+---
+
+### 4. Admin & Backoffice (Simulations-Szenarien)
+Einblicke in die Backend-Verwaltung und die Simulation von Parkvorgängen.
+
+**Zutritts-Simulation:**
+Simulation der Ein- und Ausfahrt-Schranken, die den Belegungsstatus in Echtzeit aktualisieren.
+![Simulation](img/Einfahrt-Ausfahrt_Sim.png)
+
+**Dashboard & Datenansicht:**
+Statistiken und die direkte Sicht auf die Cosmos DB (Vorschau).
+![Dashboard 1](img/Dashboard1.png)
+![Dashboard 2](img/Dashboard2.png)
+![Datenbank Vorschau](img/Datenbankvorschau_Benutzer.png)
 
