@@ -8,16 +8,10 @@ const nodemailer = require('nodemailer');
 // --- Auth Middleware ---
 function isAuthenticated(req, res, next) {
     if (req.session.userId) return next();
-    
-    // Wenn es eine API-Anfrage ist (z.B. eine Reservierung), 401 senden.
     if (req.headers['accept']?.includes('application/json') || req.xhr) {
         return res.status(401).json({ message: "Nicht angemeldet." });
     }
-    
-    // 💡 Empfehlung: Wenn der User nicht für /parking angemeldet ist, leiten wir direkt zum Login weiter.
-    // In diesem Fall wäre es besser, direkt zur Login-Seite weiterzuleiten, 
-    // falls die Route /parking/api/spots in dieser Middleware geschützt wäre, 
-    // aber wir behalten es bei /users/login, um Konsistenz zu gewährleisten.
+    // Ansonsten zur Login-Seite umleiten.
     res.redirect('/users/login');
 }
 
@@ -46,7 +40,6 @@ router.post('/register', async (req, res) => {
         }
 
         // 2. NEU: Check, ob das Kennzeichen schon existiert
-        // Wir suchen in der DB nach dem Kennzeichen (in Großbuchstaben)
         const plateUpper = vehicleLicense.toUpperCase();
         const userQuery = {
             query: "SELECT * FROM u WHERE u.vehicleLicense = @plate",
@@ -69,11 +62,10 @@ router.post('/register', async (req, res) => {
             lastName,
             email,
             passwordHash,
-            vehicleLicense: plateUpper, // Wir speichern es direkt einheitlich groß
+            vehicleLicense: plateUpper, 
             creationDate: new Date().toISOString()
         });
 
-        // Erfolgsmeldung und Weiterleitung
         res.render('login', { 
             title: 'Anmelden', 
             success: 'Registrierung erfolgreich! Bitte melden Sie sich jetzt an.', 
@@ -117,8 +109,6 @@ router.post('/login', async (req, res) => {
 
         req.session.save(err => {
             if (err) console.error(err);
-            // 🔑 KORREKTUR: Nach erfolgreichem Login zur Parkplatz-Seite umleiten.
-            // Dies zwingt den Browser, JSparking.js mit dem neuen Status neu zu laden.
             res.redirect('/parking');
         });
     } catch (err) {
@@ -196,7 +186,6 @@ router.get('/status', (req, res) => {
 
 
 // --- PASSWORT ZURÜCKSETZEN ---
-
 // 1. GET /forgot-password (Die Seite anzeigen)
 router.get('/forgot-password', (req, res) => {
     res.render('forgot-password', { title: 'Passwort vergessen', error: null, success: null });
@@ -214,11 +203,10 @@ router.post('/forgot-password', async (req, res) => {
 
         const token = crypto.randomBytes(20).toString('hex');
         user.resetPasswordToken = token;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 Stunde gültig
+        user.resetPasswordExpires = Date.now() + 3600000;
 
         await db.updateUser(user);
 
-        // E-Mail Konfiguration (Beispiel für Gmail oder Azure Communication Services)
  const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -364,8 +352,6 @@ router.post('/reset-password/:token', async (req, res) => {
 });
 
 // --- POST /change-password ---
-// ACHTUNG: Der Pfad hier ist nur '/change-password', 
-// weil in der app.js wahrscheinlich schon 'router.use('/users', ...)' steht.
 router.post('/change-password', isAuthenticated, async (req, res) => {
     const { currentPassword, newPassword } = req.body;
     

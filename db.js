@@ -18,7 +18,6 @@ const parkingContainer = database.container('Parkplatz');
 const reservationContainer = database.container('Reservierungen');
 
 // --- HILFSFUNKTIONEN ---
-
 async function updateSpotStatus(spot) {
     const partitionKey = spot.id;
     const originalETag = spot._etag;

@@ -1,12 +1,9 @@
 const express = require('express');
 const router = express.Router();
-// Stelle sicher, dass der Pfad zu deiner Datenbank-Logik (db.js) korrekt ist.
 const db = require('../db'); 
 
-// Middleware: Prüft angemeldeten Benutzer
 function isAuthenticated(req, res, next) {
     if (req.session.userId) return next();
-    // Gibt 401 für API-Aufrufe zurück
     return res.status(401).json({ message: "Sie müssen angemeldet sein." }); 
 }
 
