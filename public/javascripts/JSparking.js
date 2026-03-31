@@ -3,7 +3,6 @@ let map;
 let parkingMarkers = L.layerGroup();
 const API_BASE_URL = '/parking/api';
 
-// WICHTIG: Korrekte Initialisierung des Login-Status und der User-ID.
 // Diese Variablen werden von der EJS-Vorlage gesetzt.
 let currentUserId = window.__expressUserId || null;
 let isLoggedIn = window.__isLoggedIn || false;
@@ -14,7 +13,7 @@ let allParkingSpots = [];
 // Funktionen global verfügbar machen für Popups/UI-Handler
 window.reserveSpotFromMap = reserveSpot;
 window.showSpotDetails = showSpotDetails;
-window.releaseSpotFromUI = releaseSpot; // Globally available function for releasing active spot
+window.releaseSpotFromUI = releaseSpot; 
 
 // =======================================================
 // 1. Status- und API-Funktionen
